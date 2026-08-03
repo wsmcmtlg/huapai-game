@@ -8565,7 +8565,7 @@ updateAILevelDisplay();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('./service-worker.js?v=2')
+      navigator.serviceWorker.register('./service-worker.js?v=3')
         .then(function(reg) { console.log('花牌SW已注册:', reg.scope); })
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
     });

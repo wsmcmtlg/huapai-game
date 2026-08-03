@@ -1,5 +1,5 @@
 // 公安花牌 Service Worker - 缓存策略
-const CACHE_NAME = 'huapa-v2';
+const CACHE_NAME = 'huapa-v3';
 const ASSETS = [
   './step5-hu.html',
   './manifest.json',
