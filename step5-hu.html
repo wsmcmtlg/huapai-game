@@ -443,6 +443,19 @@
     transition: opacity 0.5s;
   }
 
+  /* 手机竖屏提示 */
+  .portrait-warning {
+    display: none;
+    position: fixed; inset: 0; z-index: 9999;
+    background: #1a472a;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 16px;
+  }
+  .portrait-warning-inner { text-align: center; }
+  .portrait-icon { font-size: 48px; }
+  .portrait-text { font-size: 22px; font-weight: 700; color: var(--gold-light); margin-top: 8px; }
+  .portrait-sub { font-size: 14px; color: rgba(245,240,225,0.6); margin-top: 4px; }
+
   /* 流局遮罩 */
   .game-over-overlay {
     position: fixed; inset: 0;
@@ -1133,6 +1146,10 @@
       background: rgba(255,255,255,0.06);
       border-color: rgba(255,255,255,0.1);
     }
+    /* 手机竖屏提示 */
+    @media (orientation: portrait) and (max-width: 768px) {
+      .portrait-warning { display: flex; }
+    }
     .zha-pick-btn:active {
       background: rgba(255,255,255,0.14);
       border-color: rgba(234,179,8,0.5);
@@ -1579,6 +1596,14 @@
 </style>
 </head>
 <body>
+  <!-- 手机竖屏提示 -->
+  <div class="portrait-warning">
+    <div class="portrait-warning-inner">
+      <div class="portrait-icon">&#x1f503;</div>
+      <div class="portrait-text">请将手机横屏</div>
+      <div class="portrait-sub">横屏后获得最佳游戏体验</div>
+    </div>
+  </div>
 <div class="table">
 
   <!-- 音效控制按钮 -->
@@ -2393,6 +2418,12 @@ const cardEls = [];
 
 /* ═══ 初始化 ═══ */
 function initGame() {
+  // 手机横屏锁定（需要用户手势触发，首次点击生效）
+  if (window._orientationLocked) {
+    if (screen && screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+  }
     invalidateHoverTingCache();
 
   G.deck = generateDeck();
@@ -8535,6 +8566,20 @@ updateAILevelDisplay();
 })();
 </script>
 <script>
+  // 手机横屏锁定：首次用户点击时触发
+  window._orientationLocked = false;
+  function _tryLockOrientation() {
+    if (window._orientationLocked) return;
+    window._orientationLocked = true;
+    if (screen && screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('landscape').catch(function(){});
+    }
+    document.removeEventListener('click', _tryLockOrientation);
+    document.removeEventListener('touchstart', _tryLockOrientation);
+  }
+  document.addEventListener('click', _tryLockOrientation);
+  document.addEventListener('touchstart', _tryLockOrientation);
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
       navigator.serviceWorker.register('./service-worker.js?v=2')
@@ -8542,14 +8587,7 @@ updateAILevelDisplay();
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
     });
   }
-  // 手机横屏锁定
-  if (screen && screen.orientation && screen.orientation.lock) {
-    document.addEventListener('DOMContentLoaded', function() {
-      screen.orientation.lock('landscape').catch(function(err) {
-        // 部分浏览器不支持锁定，静默忽略
-      });
-    });
-  }
+
 </script>
 
 </body>
