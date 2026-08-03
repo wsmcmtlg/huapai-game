@@ -253,7 +253,7 @@
   .z-discard .card-char { font-size: 20px; }
 
   .z-game-status {
-    position: absolute; top: 12px; left: 15%;
+    position: absolute; top: 12px; left: calc(15% + 150px);
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 10px 14px; border-radius: 8px;
     font-size: 12px; line-height: 1.8;
@@ -267,7 +267,7 @@
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
   .log-bar {
-    position: absolute; top: 12px; right: 15%;
+    position: absolute; top: 12px; right: calc(15% + 150px);
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 6px 12px; border-radius: 8px;
     font-size: 11px; line-height: 1.6;
@@ -2639,6 +2639,16 @@ function onDown(e) {
 }
 function onTouchDown(e) {
   e.preventDefault(); const t=e.touches[0]; dragStartPos = {x:t.clientX,y:t.clientY}; beginDrag(e.currentTarget, t.clientX, t.clientY);
+  // 手机双击检测: 记录触控时间
+  const el = e.currentTarget;
+  const now = Date.now();
+  if (el._lastTap && now - el._lastTap < 350) {
+    // 双击触发
+    el._lastTap = 0;
+    if (!dragMoved && !G.locked && !G.gameOver) playCard(el);
+  } else {
+    el._lastTap = now;
+  }
 }
 function beginDrag(el, cx, cy) {
   const r = handZone.getBoundingClientRect();
@@ -8530,6 +8540,14 @@ updateAILevelDisplay();
       navigator.serviceWorker.register('./service-worker.js?v=2')
         .then(function(reg) { console.log('花牌SW已注册:', reg.scope); })
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
+    });
+  }
+  // 手机横屏锁定
+  if (screen && screen.orientation && screen.orientation.lock) {
+    document.addEventListener('DOMContentLoaded', function() {
+      screen.orientation.lock('landscape').catch(function(err) {
+        // 部分浏览器不支持锁定，静默忽略
+      });
     });
   }
 </script>
