@@ -1147,8 +1147,8 @@
       border-color: rgba(255,255,255,0.1);
     }
     /* 手机竖屏提示 */
-    @media (orientation: portrait) and (max-width: 768px) {
-      .portrait-warning { display: flex; }
+    @media (orientation: portrait) {
+      .portrait-warning.visible { display: flex; }
     }
     .zha-pick-btn:active {
       background: rgba(255,255,255,0.14);
@@ -2418,12 +2418,7 @@ const cardEls = [];
 
 /* ═══ 初始化 ═══ */
 function initGame() {
-  // 手机横屏锁定（需要用户手势触发，首次点击生效）
-  if (window._orientationLocked) {
-    if (screen && screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(function(){});
-    }
-  }
+  // 手机横屏锁定由页面底部的点击事件处理
     invalidateHoverTingCache();
 
   G.deck = generateDeck();
@@ -8566,19 +8561,30 @@ updateAILevelDisplay();
 })();
 </script>
 <script>
-  // 手机横屏锁定：首次用户点击时触发
-  window._orientationLocked = false;
-  function _tryLockOrientation() {
-    if (window._orientationLocked) return;
-    window._orientationLocked = true;
+  // 手机横屏检测：竖屏时显示提示，横屏时隐藏
+  function _updateOrientationWarning() {
+    var pw = document.querySelector('.portrait-warning');
+    if (!pw) return;
+    var isPortrait = window.innerHeight > window.innerWidth;
+    var isMobile = window.innerWidth < 1024;
+    if (isMobile && isPortrait) {
+      pw.classList.add('visible');
+    } else {
+      pw.classList.remove('visible');
+    }
+  }
+  _updateOrientationWarning();
+  window.addEventListener('resize', _updateOrientationWarning);
+  window.addEventListener('orientationchange', function() {
+    setTimeout(_updateOrientationWarning, 200);
+  });
+  // 首次用户点击时尝试锁定横屏（部分浏览器支持）
+  document.addEventListener('click', function _tryLock() {
     if (screen && screen.orientation && screen.orientation.lock) {
       screen.orientation.lock('landscape').catch(function(){});
     }
-    document.removeEventListener('click', _tryLockOrientation);
-    document.removeEventListener('touchstart', _tryLockOrientation);
-  }
-  document.addEventListener('click', _tryLockOrientation);
-  document.addEventListener('touchstart', _tryLockOrientation);
+    document.removeEventListener('click', _tryLock);
+  }, { once: true });
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
