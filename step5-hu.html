@@ -5595,34 +5595,43 @@ function _partition(counts, wildList, wildUsed, handCards, melds, depth, usedSet
   function gfws(n) { const r=[]; for(let i=0;i<wildUsed.length;i++){if(!wildUsed[i]){r.push(i);if(r.length===n)break;}} return r.length===n?r:null; }
   function tc(c,n) { const r=[]; for(const cd of handCards){if(cd.ch===c&&!cd.isWild&&!r.includes(cd)&&!usedSet.has(cd)){r.push(cd);if(r.length===n)break;}} return r; }
 
-  // 1. 坎牌(3同字) — 统牌参与时改为碰牌
+  // 1. 坎牌(3同字) — 统牌参与时优先尝试坎牌(更高胡数)，再尝试碰牌
   if (cnt >= 3) {
     const cd = tc(ch, 3);
     if (cd.length === 3) {
       counts[ch] -= 3; if(counts[ch]===0) delete counts[ch];
-      const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
-      melds.push({type:mtype,chars:[ch,ch,ch],cards:cd});
-      cd.forEach(function(c){usedSet.add(c);});
-      if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-      melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); counts[ch] = cnt;
+      var tongFlag = cd.some(c => c.isTongCard);
+      // 统牌时优先尝试坎牌(更高胡数)，再尝试碰牌
+      var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
+      for (var _tt = 0; _tt < tryTypes.length; _tt++) {
+        melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:cd});
+        cd.forEach(function(c){usedSet.add(c);});
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+        melds.pop(); cd.forEach(function(c){usedSet.delete(c);});
+      }
+      counts[ch] = cnt;
     }
   }
-  // 3. 含赖子坎(2普通+1赖) — 统牌参与时改为碰牌
+  // 3. 含赖子坎(2普通+1赖) — 统牌参与时优先尝试坎牌
   if (cnt >= 2 && aw > 0 && WILD_USABLE.has(ch)) {
     const fi = gfw();
     if (fi !== null && fi < wildList.length) {
       const cd = tc(ch, 2);
       if (cd.length === 2) {
         wildUsed[fi] = true; counts[ch] -= 2; if(counts[ch]===0) delete counts[ch];
-        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
-        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,wildList[fi]]});
-        cd.forEach(function(c){usedSet.add(c);}); usedSet.add(wildList[fi]);
-        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-        melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); usedSet.delete(wildList[fi]); counts[ch] = cnt; wildUsed[fi] = false;
+        var tongFlag = cd.some(c => c.isTongCard);
+        var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
+        for (var _tt = 0; _tt < tryTypes.length; _tt++) {
+          melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:[...cd,wildList[fi]]});
+          cd.forEach(function(c){usedSet.add(c);}); usedSet.add(wildList[fi]);
+          if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+          melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); usedSet.delete(wildList[fi]);
+        }
+        counts[ch] = cnt; wildUsed[fi] = false;
       }
     }
   }
-  // 4. 纯赖子坎(1普通+2赖) — 统牌参与时改为碰牌
+  // 4. 纯赖子坎(1普通+2赖) — 统牌参与时优先尝试坎牌
   if (cnt >= 1 && aw >= 2 && WILD_USABLE.has(ch)) {
     const fis = gfws(2);
     if (fis && fis.every(i => i < wildList.length)) {
@@ -5630,11 +5639,15 @@ function _partition(counts, wildList, wildUsed, handCards, melds, depth, usedSet
       if (cd.length === 1) {
         fis.forEach(i => wildUsed[i] = true);
         counts[ch] -= 1; if(counts[ch]===0) delete counts[ch];
-        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
-        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,...fis.map(function(i){return wildList[i];})]});
-        cd.forEach(function(c){usedSet.add(c);}); fis.forEach(function(i){usedSet.add(wildList[i]);});
-        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-        melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); fis.forEach(function(i){usedSet.delete(wildList[i]);}); counts[ch] = cnt; fis.forEach(function(i){wildUsed[i] = false;});
+        var tongFlag = cd.some(c => c.isTongCard);
+        var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
+        for (var _tt = 0; _tt < tryTypes.length; _tt++) {
+          melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:[...cd,...fis.map(function(i){return wildList[i];})]});
+          cd.forEach(function(c){usedSet.add(c);}); fis.forEach(function(i){usedSet.add(wildList[i]);});
+          if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+          melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); fis.forEach(function(i){usedSet.delete(wildList[i]);});
+        }
+        counts[ch] = cnt; fis.forEach(function(i){wildUsed[i] = false;});
       }
     }
   }
