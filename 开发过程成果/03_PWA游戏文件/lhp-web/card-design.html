@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>湖北花牌 - 桌面布局 v8（真实牌面）</title>
+<style>
+  :root {
+    --table-green: #1a472a;
+    --table-felt: #2d6a3f;
+    --card-bg: #f5f0e1;
+    --card-shadow: rgba(0,0,0,0.3);
+    --red: #b91c1c;
+    --black: #1a1a1a;
+    --gold: #b8860b;
+    --gold-light: #daa520;
+    --radius: 5px;
+    --font-cn: "KaiTi", "STKaiti", "FangSong", serif;
+    --font-display: "Noto Serif SC", "SimSun", serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: var(--table-green);
+    background-image: radial-gradient(ellipse at 50% 50%, var(--table-felt) 0%, var(--table-green) 75%);
+    font-family: var(--font-cn);
+    color: #e8e0d0;
+    position: relative;
+  }
+  .table { width: 100%; height: 100%; position: relative; }
+
+  /* ═══════ 牌面 ═══════ */
+  .card {
+    width: 40px; height: 56px; background: var(--card-bg);
+    border-radius: var(--radius); border: 1px solid #d4c9a8;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; cursor: default;
+    box-shadow: 0 1px 3px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    user-select: none; flex-shrink: 0;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 14px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    z-index: 20;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 2px;
+    border: 0.5px solid rgba(180,160,120,0.25); border-radius: 3px; pointer-events: none;
+  }
+  .card-char { font-size: 20px; font-weight: 700; font-family: var(--font-display); line-height: 1; }
+  .card-char.red   { color: var(--red); }
+  .card-char.black { color: var(--black); }
+  .card.hua { background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 40%, #fde68a 100%); border-color: #e5b84c; }
+  .card.hua::before { border-color: rgba(184,134,11,0.25); }
+  .card.laizi {
+    background: linear-gradient(160deg, #fef3c7 0%, #fde68a 50%, #fbbf24 100%);
+    border-color: var(--gold);
+  }
+  .card.laizi .card-char {
+    background: linear-gradient(180deg, var(--red), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; font-size: 22px;
+  }
+  .card-back {
+    background: linear-gradient(135deg, #7c3aed, #4c1d95); border-color: #5b21b6;
+  }
+  .card-back::before { border-color: rgba(167,139,250,0.3); }
+  .card-back-text { font-size: 14px; color: rgba(255,255,255,0.3); font-family: var(--font-display); }
+  .card.open-pen::after,
+  .card.open-zhao::after {
+    content: ""; position: absolute; bottom: -3px; left: 3px; right: 3px;
+    height: 3px; border-radius: 0 0 4px 4px;
+  }
+  .card.open-pen::after  { background: #22c55e; }
+  .card.open-zhao::after { background: #3b82f6; }
+  .card.just-played {
+    box-shadow: 0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.4), 0 2px 6px var(--card-shadow);
+  }
+
+  /* ═══════ 手牌(平铺重叠) ═══════ */
+  .hand { display: flex; align-items: center; }
+  .hand .card + .card { margin-left: -4px; }
+
+  /* 明牌组 */
+  .meld-group {
+    display: inline-flex; gap: 2px;
+    padding: 4px 6px; background: rgba(0,0,0,0.12); border-radius: 6px;
+    border: 1px dashed rgba(255,255,255,0.06);
+  }
+  .melds { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  /* ═══════ 绝对定位区域 ═══════ */
+  .status-bar {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.7;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 20; min-width: 120px;
+  }
+  .status-bar .label { color: rgba(245,240,225,0.45); }
+  .status-bar .val { color: var(--gold-light); font-weight: 600; }
+
+  .draw-pool {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06); z-index: 15;
+  }
+  .draw-pile { display: flex; gap: 1px; }
+  .draw-pile .card { width: 28px; height: 40px; }
+  .draw-pile .card-back-text { font-size: 10px; }
+  .draw-count { font-size: 13px; color: var(--gold-light); font-weight: 600; }
+
+  .discard-pool {
+    position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.1); border-radius: 10px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    padding: 8px 10px; min-width: 260px; min-height: 70px;
+    display: flex; flex-wrap: wrap; gap: 1px; align-content: flex-start;
+    z-index: 5;
+  }
+  .discard-pool .card { width: 30px; height: 42px; margin: 1px; }
+  .discard-pool .card-char { font-size: 15px; }
+  .discard-pool .card::before { inset: 1px; }
+
+  /* ═══════ 玩家区域 ═══════ */
+  .zone { position: absolute; z-index: 10; }
+  .player-label {
+    font-size: 12px; color: rgba(245,240,225,0.6); font-weight: 600;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  .dealer-tag {
+    display: inline-block; background: var(--gold); color: #1a1a1a;
+    font-size: 9px; padding: 0 4px; border-radius: 2px; font-weight: 700;
+  }
+  .player-label span.lbl-tag {
+    font-size: 10px; color: rgba(245,240,225,0.35);
+  }
+  .zone.active .player-label { color: var(--gold-light); }
+
+  /* ───── 庄家(底部居中): 明牌区(上) / 手牌区(下) ───── */
+  .zone-bottom {
+    bottom: 8px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .zone-bottom .player-label { order: 0; margin-bottom: 2px; }
+  .zone-bottom .bottom-melds { order: 1; justify-content: center; }
+  .zone-bottom .bottom-hand  { order: 2; }
+  .zone-bottom .action-btns  { order: 3; }
+
+  /* ───── 上家(右侧): 手牌区(下) / 明牌区(左上), 均旋转180° ───── */
+  .zone-right {
+    right: 8px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  }
+  .zone-right .rotated {
+    transform: rotate(180deg);
+    transform-origin: center center;
+  }
+  .zone-right .right-melds { align-self: flex-start; }
+  .zone-right .action-btns { align-self: center; }
+
+  /* ───── 下家(左侧): 手牌区(下) / 明牌区(左上), 均旋转180° ───── */
+  .zone-left {
+    left: 8px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  }
+  .zone-left .rotated {
+    transform: rotate(180deg);
+    transform-origin: center center;
+  }
+  .zone-left .left-melds { align-self: flex-start; }
+  .zone-left .action-btns { align-self: center; }
+
+  /* ═══════ 操作按钮 ═══════ */
+  .action-btns {
+    display: flex; gap: 3px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .action-btns.visible { opacity: 1; pointer-events: auto; }
+
+  .act-btn {
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    color: #f5f0e1; border: 1px solid rgba(255,255,255,0.15);
+    padding: 2px 10px; border-radius: 4px;
+    font-size: 12px; font-family: var(--font-cn);
+    cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--gold-light); color: var(--gold-light); }
+  .act-btn.highlight {
+    background: rgba(217,119,6,0.85); border-color: var(--gold); color: #fff;
+    animation: pulse 0.8s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.4); }
+    50% { box-shadow: 0 0 8px 2px rgba(217,119,6,0.6); }
+  }
+
+  /* 演示控制 */
+  .demo-bar {
+    position: absolute; top: 10px; right: 10px; z-index: 40;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .demo-btn {
+    background: rgba(0,0,0,0.5); color: #e8e0d0;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 5px 12px; border-radius: 5px;
+    font-size: 11px; font-family: var(--font-cn);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .demo-btn:hover { background: rgba(0,0,0,0.7); border-color: var(--gold-light); }
+  .demo-btn.on { background: rgba(217,119,6,0.7); border-color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="table">
+
+  <!-- 状态栏 -->
+  <div class="status-bar">
+    <div><span class="label">回合:</span> <span class="val">23</span></div>
+    <div><span class="label">阶段:</span> <span class="val">摸牌</span></div>
+    <div><span class="label">主精:</span> <span class="val">五</span></div>
+    <div><span class="label">副精:</span> <span class="val">无</span></div>
+  </div>
+
+  <!-- 演示控制 -->
+  <div class="demo-bar">
+    <button class="demo-btn on" onclick="toggle('bottom')">庄家操作(可出)</button>
+    <button class="demo-btn" onclick="toggle('right')">上家操作(可碰)</button>
+    <button class="demo-btn" onclick="toggle('left')">下家操作(无)</button>
+  </div>
+
+  <!-- 余牌池 -->
+  <div class="draw-pool">
+    <div class="draw-count">余牌 5</div>
+    <div class="draw-pile">
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+    </div>
+  </div>
+
+  <!-- 弃牌池 -->
+  <div class="discard-pool" id="discard-pool"></div>
+
+  <!-- ═══ 上家(右侧): 明牌区(左上) / 操作 / 手牌区(下) ═══ -->
+  <div class="zone zone-right" id="zone-right">
+    <div class="player-label">上家 <span class="lbl-tag">手20+明13=33</span></div>
+    <!-- 明牌区 (左上侧) -->
+    <div class="melds rotated right-melds">
+      <!-- 碰: 二二二 (黑) -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char black">二</span></div>
+        <div class="card open-pen"><span class="card-char black">二</span></div>
+        <div class="card open-pen"><span class="card-char black">二</span></div>
+      </div>
+      <!-- 碰: 三三三 (红) 含花精 -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char red">三</span></div>
+        <div class="card open-pen hua"><span class="card-char red">三</span></div>
+        <div class="card open-pen"><span class="card-char red">三</span></div>
+      </div>
+      <!-- 招: 孔孔孔孔 (黑) -->
+      <div class="meld-group">
+        <div class="card open-zhao"><span class="card-char black">孔</span></div>
+        <div class="card open-zhao"><span class="card-char black">孔</span></div>
+        <div class="card open-zhao"><span class="card-char black">孔</span></div>
+        <div class="card open-zhao"><span class="card-char black">孔</span></div>
+      </div>
+      <!-- 碰: 子子子 (黑) -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char black">子</span></div>
+        <div class="card open-pen"><span class="card-char black">子</span></div>
+        <div class="card open-pen"><span class="card-char black">子</span></div>
+      </div>
+    </div>
+    <!-- 操作按钮 -->
+    <div class="action-btns" id="act-right">
+      <button class="act-btn">扎</button>
+      <button class="act-btn">招</button>
+      <button class="act-btn">碰</button>
+      <button class="act-btn">泛</button>
+    </div>
+    <!-- 手牌区 (下方) -->
+    <div class="hand rotated" id="hand-right"></div>
+  </div>
+
+  <!-- ═══ 下家(左侧): 明牌区(左上) / 操作 / 手牌区(下) ═══ -->
+  <div class="zone zone-left" id="zone-left">
+    <div class="player-label">下家 <span class="lbl-tag">手23+明6=29</span></div>
+    <!-- 明牌区 (左上侧) -->
+    <div class="melds rotated left-melds">
+      <!-- 碰: 大大大 (红) -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char red">大</span></div>
+        <div class="card open-pen"><span class="card-char red">大</span></div>
+        <div class="card open-pen"><span class="card-char red">大</span></div>
+      </div>
+      <!-- 碰: 已已已 (黑) -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char black">已</span></div>
+        <div class="card open-pen"><span class="card-char black">已</span></div>
+        <div class="card open-pen"><span class="card-char black">已</span></div>
+      </div>
+    </div>
+    <!-- 操作按钮 -->
+    <div class="action-btns" id="act-left">
+      <button class="act-btn">扎</button>
+      <button class="act-btn">招</button>
+      <button class="act-btn">碰</button>
+      <button class="act-btn">泛</button>
+    </div>
+    <!-- 手牌区 (下方) -->
+    <div class="hand rotated" id="hand-left"></div>
+  </div>
+
+  <!-- ═══ 庄家(底部居中): 明牌区(上) / 操作 / 手牌区(下) ═══ -->
+  <div class="zone zone-bottom active" id="zone-bottom">
+    <div class="player-label">庄家 (你) <span class="dealer-tag">庄</span> <span class="lbl-tag">手22+明9=31</span></div>
+    <!-- 明牌区 (上方) -->
+    <div class="melds bottom-melds">
+      <!-- 碰: 乙乙乙 (黑) 含花精 -->
+      <div class="meld-group">
+        <div class="card open-pen hua"><span class="card-char black">乙</span></div>
+        <div class="card open-pen hua"><span class="card-char black">乙</span></div>
+        <div class="card open-pen"><span class="card-char black">乙</span></div>
+      </div>
+      <!-- 碰: 四四四 (黑) -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char black">四</span></div>
+        <div class="card open-pen"><span class="card-char black">四</span></div>
+        <div class="card open-pen"><span class="card-char black">四</span></div>
+      </div>
+      <!-- 碰: 七七七 (红) 含花精 -->
+      <div class="meld-group">
+        <div class="card open-pen"><span class="card-char red">七</span></div>
+        <div class="card open-pen"><span class="card-char red">七</span></div>
+        <div class="card open-pen hua"><span class="card-char red">七</span></div>
+      </div>
+    </div>
+    <!-- 操作按钮 -->
+    <div class="action-btns visible" id="act-bottom">
+      <button class="act-btn">扎</button>
+      <button class="act-btn">招</button>
+      <button class="act-btn">碰</button>
+      <button class="act-btn highlight">出牌</button>
+    </div>
+    <!-- 手牌区 (底部) -->
+    <div class="hand bottom-hand" id="hand-bottom"></div>
+  </div>
+
+</div>
+
+<script>
+function makeCard(ch, color, variant) {
+  const el = document.createElement('div');
+  el.className = 'card' + (variant ? ' ' + variant : '');
+  const s = document.createElement('span');
+  s.className = 'card-char ' + color;
+  s.textContent = ch;
+  el.appendChild(s);
+  return el;
+}
+
+function buildHand(id, cards) {
+  const c = document.getElementById(id);
+  cards.forEach((d, i) => {
+    const el = makeCard(d.ch, d.c, d.v || '');
+    if (i > 0) el.style.marginLeft = '-4px';
+    c.appendChild(el);
+  });
+}
+
+/* ═══ 真实引擎模拟数据 (seed=123, 23步) ═══
+   主精: 五(花精), 余牌5张
+   引擎模拟过程中产生了:
+     庄家碰乙/碰四/碰七, 下家碰大/碰已, 上家碰二/碰三/招孔/碰子 */
+
+/* 上家手牌(20张, 已排序): 上 九(花精) 五 人 八 八 八 六 六 化 化 十 十 千 土 大 已 知 知 礼 */
+buildHand('hand-right', [
+  {ch:'上',c:'red'},{ch:'九',c:'black',v:'hua'},{ch:'五',c:'red'},
+  {ch:'人',c:'red'},{ch:'八',c:'black'},{ch:'八',c:'black'},
+  {ch:'八',c:'black'},{ch:'六',c:'black'},{ch:'六',c:'black'},
+  {ch:'化',c:'black'},{ch:'化',c:'black'},{ch:'十',c:'black'},
+  {ch:'十',c:'black'},{ch:'千',c:'black'},{ch:'土',c:'black'},
+  {ch:'大',c:'red'},{ch:'已',c:'black'},{ch:'知',c:'red'},
+  {ch:'知',c:'red'},{ch:'礼',c:'red'},
+]);
+
+/* 下家手牌(23张, 已排序): 七(花精) 三 上 乙 九 二 五(花精) 五 五 人 人 八 六 十 可 可 可 四 土 子 礼 礼 礼 赖 */
+buildHand('hand-left', [
+  {ch:'七',c:'red',v:'hua'},{ch:'三',c:'red'},{ch:'上',c:'red'},
+  {ch:'乙',c:'black'},{ch:'九',c:'black'},{ch:'二',c:'black'},
+  {ch:'五',c:'red',v:'hua'},{ch:'五',c:'red'},{ch:'五',c:'red'},
+  {ch:'人',c:'red'},{ch:'人',c:'red'},{ch:'八',c:'black'},
+  {ch:'六',c:'black'},{ch:'十',c:'black'},{ch:'可',c:'red'},
+  {ch:'可',c:'red'},{ch:'可',c:'red'},{ch:'四',c:'black'},
+  {ch:'土',c:'black'},{ch:'子',c:'black'},{ch:'礼',c:'red'},
+  {ch:'礼',c:'red'},{ch:'礼',c:'red'},{ch:'赖',c:'red',v:'laizi'},
+]);
+
+/* 庄家手牌(22张, 已排序): 七 三(花精) 上 乙 九 二 人 人 六 化 十 千 可 可 土 土 孔 已 知 知 知 赖 */
+buildHand('hand-bottom', [
+  {ch:'七',c:'red'},{ch:'三',c:'red',v:'hua'},{ch:'上',c:'red'},
+  {ch:'乙',c:'black'},{ch:'九',c:'black'},{ch:'二',c:'black'},
+  {ch:'人',c:'red'},{ch:'人',c:'red'},{ch:'六',c:'black'},
+  {ch:'化',c:'black'},{ch:'十',c:'black'},{ch:'千',c:'black'},
+  {ch:'可',c:'red'},{ch:'可',c:'red'},{ch:'土',c:'black'},
+  {ch:'土',c:'black'},{ch:'孔',c:'black'},{ch:'已',c:'black'},
+  {ch:'知',c:'red'},{ch:'知',c:'red'},{ch:'知',c:'red'},
+  {ch:'赖',c:'red',v:'laizi'},
+]);
+
+/* 弃牌池(14张): 由引擎23步中非碰/招的出牌构成 */
+const pool = document.getElementById('discard-pool');
+[
+  {ch:'上',c:'red'},{ch:'赖',c:'red',v:'laizi'},{ch:'礼',c:'red'},
+  {ch:'可',c:'red'},{ch:'土',c:'black'},{ch:'千',c:'black'},
+  {ch:'十',c:'black'},{ch:'人',c:'red'},{ch:'化',c:'black'},
+  {ch:'六',c:'black'},{ch:'二',c:'black'},{ch:'九',c:'black'},
+  {ch:'乙',c:'black'},{ch:'化',c:'black'},
+].forEach((d, i, a) => {
+  pool.appendChild(makeCard(d.ch, d.c, d.v || '', i === a.length - 1 ? 'just-played' : ''));
+});
+
+/* 按钮切换 */
+const states = { bottom: true, right: false, left: false };
+const acts  = { bottom: 'act-bottom',  right: 'act-right',  left: 'act-left' };
+const labels = { bottom: '庄家', right: '上家', left: '下家' };
+
+function toggle(who) {
+  states[who] = !states[who];
+  document.getElementById(acts[who]).classList.toggle('visible', states[who]);
+  document.querySelectorAll('.demo-btn').forEach(b => {
+    if (b.textContent.startsWith(labels[who])) b.classList.toggle('on', states[who]);
+  });
+}
+</script>
+</body>
+</html>

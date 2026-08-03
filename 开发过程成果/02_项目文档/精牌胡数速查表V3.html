@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+    font-family: Arial, "Microsoft YaHei", SimSun, sans-serif;
+    font-size: 10pt;
+    line-height: 1.6;
+    margin: 20pt;
+}
+h1 {
+    font-size: 16pt;
+    text-align: center;
+    margin-bottom: 4pt;
+}
+h2 {
+    font-size: 13pt;
+    margin-top: 18pt;
+    margin-bottom: 6pt;
+    border-bottom: 1px solid #333333;
+    padding-bottom: 3pt;
+}
+h3 {
+    font-size: 11pt;
+    margin-top: 12pt;
+    margin-bottom: 4pt;
+}
+p {
+    margin: 4pt 0;
+}
+.note {
+    background-color: #f5f5f5;
+    padding: 8pt 12pt;
+    margin: 8pt 0;
+    border-left: 3px solid #999999;
+    font-size: 9pt;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 6pt 0 12pt 0;
+    font-size: 9.5pt;
+}
+th {
+    background-color: #333333;
+    color: #ffffff;
+    font-weight: bold;
+    border: 1px solid #333333;
+    padding: 5pt 8pt;
+    text-align: center;
+}
+td {
+    border: 1px solid #dddddd;
+    padding: 4pt 8pt;
+    text-align: center;
+}
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+td.hu-input {
+    background-color: #fffde7;
+    width: 90pt;
+}
+.header-sub {
+    text-align: center;
+    font-size: 9pt;
+    color: #666666;
+    margin-bottom: 10pt;
+}
+</style>
+</head>
+<body>
+
+<h1>精牌胡数速查表 V3.0</h1>
+<p class="header-sub">红精(三/五/七) + 黑精(乙/九) | 对牌 / 坎牌 / 扎牌 / 招牌 / 穿牌 / 泛牌</p>
+
+<div class="note">
+<strong>填写说明：</strong><br>
+1. 本表列出所有可能的精牌组合，请逐行填写"非主精胡数"和"主精胡数"列。<br>
+2. <strong>主精翻倍规律</strong>：主精胡数 = 非主精胡数 x 2（如果仍成立请打勾，否则请填写实际值）。<br>
+3. <strong>精对 = 精坎 - 2</strong>：如果此规律仍成立，精对可不填，由系统自动推算。<br>
+4. <strong>精穿 = 精泛</strong>：穿牌与泛牌胡数相同，穿牌填写后泛牌自动对应。<br>
+5. 赖子只能配三五七(红精)，不能配乙九(黑精)。<br>
+6. 每种精牌最多 3皮 + 2花，赖子全局最多 2张。<br>
+7. 纯精牌(无赖子)组合，红精与黑精共用"非主精胡数"，仅主精翻倍时可能因精种不同而有差异。<br>
+8. 含赖子组合仅红精(三五七)存在，黑精无赖子组合。
+</div>
+
+<!-- ==================== 精对 - 对牌 ==================== -->
+<h2>一、精对（对牌）— 2张</h2>
+<p>规则：赖子不参与对牌。红精和黑精共用。</p>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>1</td><td>0</td><td>2</td><td>0</td>
+    <td>2花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>2</td><td>1</td><td>1</td><td>0</td>
+    <td>1皮1花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>3</td><td>2</td><td>0</td><td>0</td>
+    <td>2皮</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+</table>
+
+<!-- ==================== 精坎 - 坎牌 ==================== -->
+<h2>二、精坎（坎牌）— 3张</h2>
+
+<h3>2.1 红精 / 黑精共用（纯精牌，无赖子）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>1</td><td>1</td><td>2</td><td>0</td>
+    <td>1皮2花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>2</td><td>2</td><td>1</td><td>0</td>
+    <td>2皮1花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>3</td><td>3</td><td>0</td><td>0</td>
+    <td>3皮</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+</table>
+
+<h3>2.2 红精专用（含赖子，赖子只配三五七）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>4</td><td>0</td><td>1</td><td>2</td>
+    <td>1花2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>5</td><td>0</td><td>2</td><td>1</td>
+    <td>2花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>6</td><td>1</td><td>0</td><td>2</td>
+    <td>1皮2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>7</td><td>1</td><td>1</td><td>1</td>
+    <td>1皮1花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>8</td><td>2</td><td>0</td><td>1</td>
+    <td>2皮1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+</table>
+<p><em>注：1皮2花(序号2)已在2.1中列出。3皮0花(序号3)已在2.1中列出。此处仅列出含赖子的额外组合。</em></p>
+
+<!-- ==================== 精扎 - 扎牌 ==================== -->
+<h2>三、精扎（扎牌）— 4张</h2>
+
+<h3>3.1 红精 / 黑精共用（纯精牌，无赖子）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>1</td><td>2</td><td>2</td><td>0</td>
+    <td>2皮2花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>2</td><td>3</td><td>1</td><td>0</td>
+    <td>3皮1花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+</table>
+
+<h3>3.2 红精专用（含赖子，赖子只配三五七）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>3</td><td>0</td><td>2</td><td>2</td>
+    <td>2花2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>4</td><td>1</td><td>1</td><td>2</td>
+    <td>1皮1花2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>5</td><td>1</td><td>2</td><td>1</td>
+    <td>1皮2花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>6</td><td>2</td><td>0</td><td>2</td>
+    <td>2皮2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>7</td><td>2</td><td>1</td><td>1</td>
+    <td>2皮1花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+<tr>
+    <td>8</td><td>3</td><td>0</td><td>1</td>
+    <td>3皮1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精</td>
+</tr>
+</table>
+
+<!-- ==================== 精招 - 招牌 ==================== -->
+<h2>四、精招（招牌）— 4张（明牌）</h2>
+<p>规则：赖子不参与招牌。红精和黑精共用。</p>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>1</td><td>2</td><td>2</td><td>0</td>
+    <td>2皮2花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+<tr>
+    <td>2</td><td>3</td><td>1</td><td>0</td>
+    <td>3皮1花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td></td>
+</tr>
+</table>
+
+<!-- ==================== 精穿 - 穿牌 ==================== -->
+<h2>五、精穿（穿牌）/ 精泛（泛牌）— 5张</h2>
+<p>规则：精穿(明牌)与精泛(暗牌)胡数相同，共用一张表。4皮组合不存在（每种精牌最多3皮）。</p>
+
+<h3>5.1 红精 / 黑精共用（纯精牌，无赖子）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>1</td><td>3</td><td>2</td><td>0</td>
+    <td>3皮2花</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>穿牌=泛牌</td>
+</tr>
+</table>
+
+<h3>5.2 红精专用（含赖子，赖子只配三五七）</h3>
+<table>
+<tr>
+    <th>序号</th>
+    <th>皮数</th>
+    <th>花数</th>
+    <th>赖数</th>
+    <th>组合描述</th>
+    <th>非主精胡数</th>
+    <th>主精胡数</th>
+    <th>主精=非主精x2?</th>
+    <th>备注</th>
+</tr>
+<tr>
+    <td>2</td><td>1</td><td>2</td><td>2</td>
+    <td>1皮2花2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精 | 穿牌=泛牌</td>
+</tr>
+<tr>
+    <td>3</td><td>2</td><td>1</td><td>2</td>
+    <td>2皮1花2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精 | 穿牌=泛牌</td>
+</tr>
+<tr>
+    <td>4</td><td>2</td><td>2</td><td>1</td>
+    <td>2皮2花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精 | 穿牌=泛牌</td>
+</tr>
+<tr>
+    <td>5</td><td>3</td><td>0</td><td>2</td>
+    <td>3皮2赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精 | 穿牌=泛牌</td>
+</tr>
+<tr>
+    <td>6</td><td>3</td><td>1</td><td>1</td>
+    <td>3皮1花1赖</td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td class="hu-input"> </td>
+    <td>赖=花精 | 穿牌=泛牌</td>
+</tr>
+</table>
+
+<!-- ==================== 已知数据参考 ==================== -->
+<h2>附：V2.0 已确认数据（供参考填写）</h2>
+<div class="note">以下数据来自V2.0速查表和用户确认，可直接填入上方表格，如确认无误无需修改。</div>
+<table>
+<tr>
+    <th>牌型</th>
+    <th>组合</th>
+    <th>非主精</th>
+    <th>主精</th>
+    <th>来源</th>
+</tr>
+<tr><td>精对(2花)</td><td>0皮2花</td><td>5</td><td>10</td><td>V2.0</td></tr>
+<tr><td>精对(1皮1花)</td><td>1皮1花</td><td>4</td><td>8</td><td>V2.0</td></tr>
+<tr><td>精对(2皮)</td><td>2皮0花</td><td>3</td><td>6</td><td>V2.0</td></tr>
+<tr><td>精坎(1皮2花)</td><td>1皮2花</td><td>7</td><td>14</td><td>V2.0</td></tr>
+<tr><td>精坎(2皮1花)</td><td>2皮1花</td><td>6</td><td>12</td><td>V2.0</td></tr>
+<tr><td>精坎(3皮)</td><td>3皮0花</td><td>1</td><td>2</td><td>V2.0</td></tr>
+<tr><td>精坎(1花2赖)</td><td>0皮1花2赖</td><td>7</td><td>14</td><td>V2.0</td></tr>
+<tr><td>精坎(2花1赖)</td><td>0皮2花1赖</td><td>9</td><td>18</td><td>V2.0</td></tr>
+<tr><td>精坎(1皮2赖)</td><td>1皮0花2赖</td><td>5</td><td>10</td><td>V2.0</td></tr>
+<tr><td>精坎(1皮1花1赖)</td><td>1皮1花1赖</td><td>7</td><td>14</td><td>V2.0</td></tr>
+<tr><td>精坎(2皮1赖)</td><td>2皮0花1赖</td><td>3</td><td>6</td><td>V2.0</td></tr>
+<tr><td>精穿(2皮1花2赖)</td><td>2皮1花2赖</td><td>48</td><td>96</td><td>V2.0+用户确认</td></tr>
+<tr><td>精穿(3皮1花1赖)</td><td>3皮1花1赖</td><td>28</td><td>56</td><td>用户补充确认</td></tr>
+<tr><td>精穿(3皮2赖)</td><td>3皮0花2赖</td><td>28</td><td>56</td><td>用户补充确认</td></tr>
+</table>
+
+</body>
+</html>

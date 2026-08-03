@@ -1,0 +1,22 @@
+{
+  "name": "公安花牌",
+  "short_name": "花牌",
+  "description": "湖北公安花牌 - 经典传统纸牌游戏",
+  "start_url": "./step5-hu.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#1a472a",
+  "theme_color": "#1a472a",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

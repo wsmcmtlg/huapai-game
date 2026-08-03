@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公安花牌 - Step1 手牌拖动 v2</title>
+<style>
+  :root {
+    --table-bg: #1a472a;
+    --table-felt: #2d6a3f;
+    --card-bg: #f5f0e1;
+    --card-shadow: rgba(0,0,0,0.3);
+    --red: #b91c1c;
+    --black: #1a1a1a;
+    --gold: #b8860b;
+    --gold-light: #daa520;
+    --radius: 5px;
+    --font-cn: "KaiTi", "STKaiti", "FangSong", serif;
+    --font-display: "Noto Serif SC", "SimSun", serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: var(--table-bg);
+    background-image: radial-gradient(ellipse at 50% 50%, var(--table-felt) 0%, var(--table-bg) 75%);
+    font-family: var(--font-cn);
+    color: #e8e0d0;
+  }
+  .table { width: 100%; height: 100%; position: relative; }
+
+  /* ═══════ 牌面 ═══════ */
+  .card {
+    width: 40px; height: 56px; background: var(--card-bg);
+    border-radius: var(--radius); border: 1px solid #d4c9a8;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    position: absolute; cursor: default;
+    box-shadow: 0 1px 3px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    user-select: none;
+    z-index: 1;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 2px;
+    border: 0.5px solid rgba(180,160,120,0.25); border-radius: 3px; pointer-events: none;
+  }
+  .card-char { font-size: 20px; font-weight: 700; font-family: var(--font-display); line-height: 1; }
+  .card-char.red   { color: var(--red); }
+  .card-char.black { color: var(--black); }
+  .card.hua { background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 40%, #fde68a 100%); border-color: #e5b84c; }
+  .card.hua::before { border-color: rgba(184,134,11,0.25); }
+  .card.laizi {
+    background: linear-gradient(160deg, #fef3c7 0%, #fde68a 50%, #fbbf24 100%);
+    border-color: var(--gold);
+  }
+  .card.laizi .card-char {
+    background: linear-gradient(180deg, var(--red), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; font-size: 22px;
+  }
+  .card-back {
+    background: linear-gradient(135deg, #7c3aed, #4c1d95); border-color: #5b21b6;
+  }
+  .card-back::before { border-color: rgba(167,139,250,0.3); }
+  .card-back-text { font-size: 14px; color: rgba(255,255,255,0.3); font-family: var(--font-display); }
+
+  .card.in-hand { cursor: grab; }
+  .card.in-hand:active { cursor: grabbing; }
+  .card.dragging {
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.5);
+    transform: scale(1.06);
+    cursor: grabbing;
+  }
+  .card.grouped {
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.6), 0 2px 8px var(--card-shadow);
+  }
+
+  /* 明牌组 */
+  .meld-group {
+    display: inline-flex; gap: 2px;
+    padding: 4px 6px; background: rgba(0,0,0,0.12); border-radius: 6px;
+    border: 1px dashed rgba(255,255,255,0.06);
+  }
+  .meld-group .card { position: relative; cursor: default; }
+  .meld-group .card + .card { margin-left: 2px; }
+  .meld-group .card.open-pen::after,
+  .meld-group .card.open-zhao::after {
+    content: ""; position: absolute; bottom: -3px; left: 3px; right: 3px;
+    height: 3px; border-radius: 0 0 4px 4px;
+  }
+  .meld-group .card.open-pen::after  { background: #22c55e; }
+  .meld-group .card.open-zhao::after { background: #3b82f6; }
+  .melds-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: flex-start; }
+
+  /* ═══════ 庄家手牌区(自由拖动，加大) ═══════ */
+  .hand-zone {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 70vw; height: 160px;
+    background: rgba(234,179,8,0.06);
+    border: 1px dashed rgba(234,179,8,0.15);
+    border-radius: 8px;
+    overflow: visible;
+  }
+  .hand-zone-hint {
+    position: absolute; top: 4px; left: 10px;
+    font-size: 10px; color: rgba(234,179,8,0.35);
+    pointer-events: none;
+  }
+
+  /* ═══════ 其它区域 ═══════ */
+  .z-deck {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06); z-index: 15;
+  }
+  .draw-pile { display: flex; gap: 1px; }
+  .draw-pile .card { width: 28px; height: 40px; position: relative; }
+  .draw-pile .card-back-text { font-size: 10px; }
+  .draw-count { font-size: 13px; color: var(--gold-light); font-weight: 600; }
+
+  .z-discard {
+    position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.1); border-radius: 10px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 1px; align-content: flex-start;
+    z-index: 5;
+  }
+  .z-discard .card { width: 30px; height: 42px; position: relative; margin: 1px; }
+  .z-discard .card-char { font-size: 15px; }
+
+  .z-game-status {
+    position: absolute; top: 12px; left: 15%;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.8;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 20; min-width: 140px;
+  }
+  .z-game-status .label { color: rgba(245,240,225,0.45); }
+  .z-game-status .val { color: var(--gold-light); font-weight: 600; }
+
+  .player-info {
+    position: absolute;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 15; font-size: 12px; line-height: 1.6;
+  }
+  .player-info .p-name { font-weight: 700; color: #e8e0d0; }
+  .player-info .p-stats { color: rgba(245,240,225,0.5); font-size: 11px; }
+  .player-info .p-stats span { color: var(--gold-light); font-weight: 600; }
+
+  .side-hand-zone {
+    position: absolute; width: 150px; height: 340px;
+    display: flex; align-items: center; justify-content: center; z-index: 10;
+  }
+  .side-hand-zone .hand { display: flex; align-items: center; transform: rotate(180deg); }
+  .side-hand-zone .hand .card + .card { margin-left: -10px; }
+
+  .side-meld-zone {
+    position: absolute; width: 100px; height: 340px;
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+    z-index: 10;
+  }
+  .side-meld-zone .melds {
+    display: flex; flex-direction: column; gap: 5px;
+    transform: rotate(180deg); transform-origin: top center;
+  }
+
+  .z-meld-bottom {
+    position: absolute; bottom: 175px; left: 50%; transform: translateX(-50%);
+    width: 420px;
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 4px;
+    z-index: 10;
+  }
+
+  .tip-bar {
+    position: absolute; bottom: 174px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    padding: 4px 14px; border-radius: 5px;
+    font-size: 11px; color: rgba(245,240,225,0.5);
+    z-index: 25; pointer-events: none; white-space: nowrap;
+    transition: opacity 0.5s;
+  }
+</style>
+</head>
+<body>
+<div class="table">
+
+  <!-- 余牌区 -->
+  <div class="z-deck">
+    <div class="draw-count">余牌 36</div>
+    <div class="draw-pile">
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+    </div>
+  </div>
+
+  <!-- 游戏状态 -->
+  <div class="z-game-status">
+    <div><span class="label">局数:</span> <span class="val">第1局</span></div>
+    <div><span class="label">回合:</span> <span class="val">0</span></div>
+    <div><span class="label">阶段:</span> <span class="val">组牌</span></div>
+    <div><span class="label">主精:</span> <span class="val">五(花精)</span></div>
+    <div><span class="label">副精:</span> <span class="val">无</span></div>
+  </div>
+
+  <!-- 弃牌区(空) -->
+  <div class="z-discard" id="discard-pool"></div>
+
+  <!-- 上家 -->
+  <div class="player-info" style="top:12px;right:12px;">
+    <div class="p-name">上家</div>
+    <div class="p-stats">手牌 <span>25</span> + 明牌 <span>0</span></div>
+  </div>
+  <div class="side-meld-zone" style="top:14%;right:170px;" id="melds-right"></div>
+  <div class="side-hand-zone" style="top:14%;right:12px;" id="hand-right-zone">
+    <div class="hand" id="hand-right"></div>
+  </div>
+
+  <!-- 下家 -->
+  <div class="player-info" style="top:12px;left:12px;">
+    <div class="p-name">下家</div>
+    <div class="p-stats">手牌 <span>25</span> + 明牌 <span>0</span></div>
+  </div>
+  <div class="side-hand-zone" style="top:14%;left:12px;" id="hand-left-zone">
+    <div class="hand" id="hand-left"></div>
+  </div>
+  <div class="side-meld-zone" style="top:14%;left:170px;" id="melds-left"></div>
+
+  <!-- 庄家信息 -->
+  <div class="player-info" style="bottom:8px;left:2%;">
+    <div class="p-name">庄家(你)</div>
+    <div class="p-stats">手牌 <span id="hand-count">26</span></div>
+  </div>
+
+  <!-- 庄家明牌区 -->
+  <div class="z-meld-bottom" id="melds-bottom"></div>
+
+  <!-- 庄家手牌区(自由拖动，加大) -->
+  <div class="hand-zone" id="hand-zone">
+    <span class="hand-zone-hint">上下左右自由拖动 | 相同字面靠近自动吸附</span>
+  </div>
+
+  <!-- 操作提示 -->
+  <div class="tip-bar" id="tip-bar">试试把相同字面的牌上下凑到一起</div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   手牌拖动系统 v2 — 加大区域 + 上下自由拖动
+   ═══════════════════════════════════════ */
+
+const CARD_W = 40, CARD_H = 56, STEP_X = 36; // 水平间距(留4px呼吸)
+const handZone = document.getElementById('hand-zone');
+const tipBar = document.getElementById('tip-bar');
+
+// 庄家26张手牌
+const handCards = [
+  {ch:'三',c:'red',v:'hua'},{ch:'上',c:'red'},{ch:'上',c:'red'},
+  {ch:'乙',c:'black',v:'hua'},{ch:'乙',c:'black'},{ch:'二',c:'black'},
+  {ch:'二',c:'black'},{ch:'人',c:'red'},{ch:'人',c:'red'},{ch:'人',c:'red'},
+  {ch:'八',c:'black'},{ch:'八',c:'black'},{ch:'六',c:'black'},
+  {ch:'十',c:'black'},{ch:'千',c:'black'},{ch:'可',c:'red'},
+  {ch:'四',c:'black'},{ch:'土',c:'black'},{ch:'大',c:'red'},
+  {ch:'子',c:'black'},{ch:'孔',c:'black'},{ch:'已',c:'black'},
+  {ch:'知',c:'red'},{ch:'知',c:'red'},{ch:'礼',c:'red'},
+  {ch:'赖',c:'red',v:'laizi'},
+];
+
+const cardEls = [];
+
+function createCardEl(data, x, y) {
+  const el = document.createElement('div');
+  const variant = data.v === 'hua' ? 'hua' : (data.v === 'laizi' ? 'laizi' : '');
+  el.className = 'card in-hand' + (variant ? ' ' + variant : '');
+  el.innerHTML = `<span class="card-char ${data.c}">${data.ch}</span>`;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.dataset.char = data.ch;
+
+  el.addEventListener('mousedown', onDown);
+  el.addEventListener('touchstart', onTouchDown, { passive: false });
+
+  cardEls.push(el);
+  handZone.appendChild(el);
+  return el;
+}
+
+// 初始排列：自动分行，水平紧凑+上下两行
+function layoutInitial() {
+  const zoneW = handZone.offsetWidth;
+  const zoneH = handZone.offsetHeight;
+  // 一行能放多少张
+  const perRow = Math.min(handCards.length, Math.floor((zoneW - 10) / STEP_X));
+  const rows = Math.ceil(handCards.length / perRow);
+  // 居中偏下（玩家习惯从底部抓牌）
+  const startY = zoneH - rows * (CARD_H + 6) - 8;
+  const startX = (zoneW - perRow * STEP_X + (STEP_X - CARD_W)) / 2;
+
+  handCards.forEach((data, i) => {
+    const row = Math.floor(i / perRow);
+    const col = i % perRow;
+    const x = startX + col * STEP_X;
+    const y = startY + row * (CARD_H + 6);
+    createCardEl(data, x, y);
+  });
+  document.getElementById('hand-count').textContent = handCards.length;
+}
+
+// ═══ 拖动逻辑 ═══
+let drag = null;
+
+function onDown(e) { e.preventDefault(); beginDrag(e.currentTarget, e.clientX, e.clientY); }
+function onTouchDown(e) { e.preventDefault(); beginDrag(e.currentTarget, e.touches[0].clientX, e.touches[0].clientY); }
+
+function beginDrag(el, cx, cy) {
+  const r = handZone.getBoundingClientRect();
+  drag = {
+    el,
+    ox: cx - r.left - parseFloat(el.style.left),
+    oy: cy - r.top  - parseFloat(el.style.top),
+    moved: false
+  };
+  el.classList.add('dragging');
+}
+
+function onMove(cx, cy) {
+  if (!drag) return;
+  const r = handZone.getBoundingClientRect();
+  let x = cx - r.left - drag.ox;
+  let y = cy - r.top  - drag.oy;
+  // 限制：允许大部分牌面在手牌区内，但允许少量超出边缘方便操作
+  const margin = CARD_W * 0.6;
+  x = Math.max(-margin, Math.min(handZone.offsetWidth  - CARD_W + margin, x));
+  y = Math.max(-margin, Math.min(handZone.offsetHeight - CARD_H + margin, y));
+  drag.el.style.left = x + 'px';
+  drag.el.style.top  = y + 'px';
+  drag.moved = true;
+  highlightNearby(drag.el);
+}
+
+document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+document.addEventListener('touchmove', e => { if (drag) { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); } }, { passive: false });
+
+function endDrag() {
+  if (!drag) return;
+  drag.el.classList.remove('dragging');
+  if (drag.moved) snapToGroup(drag.el);
+  clearHighlights();
+  drag = null;
+}
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+
+function highlightNearby(dragEl) {
+  const dx = parseFloat(dragEl.style.left);
+  const dy = parseFloat(dragEl.style.top);
+  const ch = dragEl.dataset.char;
+  cardEls.forEach(el => {
+    if (el === dragEl) { el.classList.remove('grouped'); return; }
+    const dist = Math.hypot(dx - parseFloat(el.style.left), dy - parseFloat(el.style.top));
+    el.classList.toggle('grouped', dist < CARD_W * 1.8 && el.dataset.char === ch);
+  });
+}
+
+function clearHighlights() {
+  cardEls.forEach(el => el.classList.remove('grouped'));
+}
+
+// 吸附：放到同字面牌附近时自动紧贴
+function snapToGroup(dragEl) {
+  const dx = parseFloat(dragEl.style.left);
+  const dy = parseFloat(dragEl.style.top);
+  const ch = dragEl.dataset.char;
+
+  // 找最近的同字面牌
+  let best = null, bestDist = Infinity;
+  cardEls.forEach(el => {
+    if (el === dragEl || el.dataset.char !== ch) return;
+    const dist = Math.hypot(dx - parseFloat(el.style.left), dy - parseFloat(el.style.top));
+    if (dist < bestDist) { bestDist = dist; best = el; }
+  });
+
+  if (best && bestDist < CARD_W * 2.5) {
+    const tx = parseFloat(best.style.left);
+    const ty = parseFloat(best.style.top);
+    // 判断从哪个方向接近，决定吸附位置
+    const fromRight = dx > tx;
+    const fromBelow = dy > ty;
+    const snapX = fromRight ? tx + STEP_X : Math.max(0, tx - STEP_X);
+    const snapY = fromBelow ? ty + 2 : Math.max(0, ty - 2);
+    dragEl.style.left = snapX + 'px';
+    dragEl.style.top  = snapY + 'px';
+    dragEl.style.zIndex = '2';
+  }
+}
+
+// ═══ 上/下家牌背 ═══
+function buildSideHand(id, count) {
+  const c = document.getElementById(id);
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'card card-back';
+    el.innerHTML = '<span class="card-back-text">花</span>';
+    if (i > 0) el.style.marginLeft = '-10px';
+    c.appendChild(el);
+  }
+}
+
+// ═══ 初始化 ═══
+layoutInitial();
+buildSideHand('hand-right', 25);
+buildSideHand('hand-left', 25);
+
+let tipHidden = false;
+function hideTip() { if (!tipHidden) { tipBar.style.opacity = '0'; tipHidden = true; } }
+handZone.addEventListener('mousedown', hideTip, { once: true });
+handZone.addEventListener('touchstart', hideTip, { once: true });
+</script>
+</body>
+</html>

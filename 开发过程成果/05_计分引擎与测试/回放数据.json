@@ -1,0 +1,9 @@
+{
+  "rounds": [
+    {"round": 1, "search_n": 768, "winner": "上家", "hu": 27, "type": "捉统", "score": 4, "main_jin": "七", "steps": 68},
+    {"round": 2, "search_n": 864, "winner": "下家", "hu": 40, "type": "捉统", "score": 6, "main_jin": "三", "steps": 83},
+    {"round": 3, "search_n": 981, "winner": "庄家", "hu": 26, "type": "捉统", "score": 4, "main_jin": "七", "steps": 64},
+    {"round": 4, "search_n": 1544, "winner": "庄家", "hu": 26, "type": "捉统", "score": 4, "main_jin": "三", "steps": 54},
+    {"round": 5, "search_n": 1861, "winner": "庄家", "hu": 17, "type": "捉统", "score": 3, "main_jin": "五", "steps": 90}
+  ]
+}

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>湖北公安花牌游戏 - 代码详细说明</title>
+<style>
+body { font-family: "Microsoft YaHei", SimSun, sans-serif; font-size: 11pt; line-height: 1.6; color: #333; max-width: 1000px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 10px; margin-top: 30px; }
+h2 { font-size: 16pt; color: #16213e; border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-top: 28px; }
+h3 { font-size: 13pt; color: #0f3460; margin-top: 22px; }
+h4 { font-size: 11pt; color: #333; margin-top: 16px; }
+code { font-family: Consolas, "Courier New", monospace; background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-size: 10pt; }
+pre { background: #f8f8f8; border: 1px solid #e0e0e0; border-left: 3px solid #e94560; padding: 12px; font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; overflow-x: auto; line-height: 1.4; }
+blockquote { border-left: 4px solid #e94560; background: #fff5f5; padding: 10px 15px; margin: 15px 0; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+th { background: #16213e; color: white; padding: 8px 10px; text-align: left; border: 1px solid #16213e; }
+td { padding: 6px 10px; border: 1px solid #ddd; }
+tr:nth-child(even) { background: #f9f9f9; }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+.note { background: #fffde7; border-left: 4px solid #fdd835; padding: 10px 15px; margin: 12px 0; }
+.warning { background: #fff3e0; border-left: 4px solid #ff9800; padding: 10px 15px; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<h1>湖北公安花牌游戏 - 代码详细说明</h1>
+
+<p>本文档详细说明湖北公安花牌游戏（单文件 HTML 实现）的完整代码架构、数据模型、游戏规则、AI 系统及关键技术细节。代码文件：<code>step5-hu.html</code>，约 8159 行，1.08 MB，单文件自包含 Web 应用。</p>
+
+<h2>1. 游戏概述</h2>
+
+<p>湖北公安花牌是一种地方性字牌游戏，使用 22 种字牌（上、大、人、可、知、礼、三、五、七、化、千、孔、己、二、四、六、八、十、子、土、乙、九），每种字牌 5 张（精牌 3 皮 + 2 花，非精牌 5 皮），共 110 张。另有 2 张"赖子"（万能牌），总牌数 112 张。</p>
+
+<p>本实现为单文件 HTML 应用，包含完整的游戏逻辑、AI 对战、音效系统和可视化界面。支持 3 人游戏（庄家 + 2 旁家），玩家与 2 个 AI 对战。</p>
+
+<table>
+<tr><th>属性</th><th>值</th></tr>
+<tr><td>开发语言</td><td>JavaScript（单文件 HTML）</td></tr>
+<tr><td>总行数</td><td>8159 行</td></tr>
+<tr><td>总大小</td><td>约 1.08 MB</td></tr>
+<tr><td>函数数量</td><td>188 个</td></tr>
+<tr><td>顶层变量</td><td>54 个</td></tr>
+<tr><td>CSS 部分</td><td>43,017 字符</td></tr>
+<tr><td>HTML 部分</td><td>5,894 字符</td></tr>
+<tr><td>JS 部分</td><td>1,030,938 字符</td></tr>
+<tr><td>AI 等级</td><td>4 级（菜鸟、高手、大师、老千）</td></tr>
+<tr><td>牌型系统</td><td>碰、坎、招、扎、穿、泛、顺子、对子</td></tr>
+<tr><td>总牌数</td><td>112 张（110 张字牌 + 2 张赖子）</td></tr>
+<tr><td>每字张数</td><td>5 张（精牌 3 皮 + 2 花，非精牌 5 皮）</td></tr>
+</table>
+
+<h2>2. 文件结构</h2>
+
+<p>文件按顺序分为以下部分：</p>
+
+<table>
+<tr><th>部分</th><th>行范围</th><th>内容</th></tr>
+<tr><td>HTML 骨架</td><td>L1-L444</td><td>DOCTYPE、html、head 标签</td></tr>
+<tr><td>CSS 样式</td><td>L445-L43461</td><td>完整游戏界面样式（深绿色牌桌、牌面、按钮、弹窗等）</td></tr>
+<tr><td>HTML 结构</td><td>L43462-L49355</td><td>DOM 元素（牌桌、手牌区、明牌区、按钮、弹窗等）</td></tr>
+<tr><td>JavaScript 逻辑</td><td>L49356-L1080294</td><td>全部游戏逻辑、AI、音效、胡牌算法等</td></tr>
+</table>
+
+<h2>3. 核心数据模型</h2>
+
+<h3>3.1 牌的数据结构（CardData）</h3>
+
+<p>每张牌使用 <code>makeCardData(ch, v)</code> 创建的对象表示：</p>
+
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>ch</td><td>string</td><td>牌面字符，如 "三"、"五"、"赖"</td></tr>
+<tr><td>v</td><td>string</td><td>变体："flower"（花精，显示叁/伍/柒/壹/玖）、"skin"（皮精，显示三/五/七/乙/九）、undefined（普通牌）</td></tr>
+<tr><td>isWild</td><td>boolean</td><td>是否为赖子（ch === '赖'）</td></tr>
+<tr><td>isTongCard</td><td>boolean</td><td>是否为捉统牌（旁家打出的牌）</td></tr>
+</table>
+
+<h3>3.2 全局游戏状态（G 对象）</h3>
+
+<p><code>G</code> 对象是游戏的核心状态管理器，包含以下关键字段：</p>
+
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>round</td><td>number</td><td>当前回合数</td></tr>
+<tr><td>currentPlayer</td><td>number</td><td>当前玩家索引（0=庄家, 1=下家, 2=上家）</td></tr>
+<tr><td>phase</td><td>string</td><td>游戏阶段："play"（出牌）、"draw"（摸牌）、"waiting"（等待响应）等</td></tr>
+<tr><td>deck</td><td>array</td><td>余牌数组（从底部摸牌）</td></tr>
+<tr><td>deckCount</td><td>number</td><td>余牌数量</td></tr>
+<tr><td>locked</td><td>boolean</td><td>界面是否锁定</td></tr>
+<tr><td>drawnCard</td><td>CardData</td><td>当前摸到的牌（暂存区）</td></tr>
+<tr><td>lastPlayedChar</td><td>string</td><td>上一张打出的牌字符</td></tr>
+<tr><td>dealerMelds</td><td>array</td><td>庄家明牌区记录（碰/招/扎/穿/泛）</td></tr>
+<tr><td>_zhaChars</td><td>array</td><td>当前可扎牌的字符列表</td></tr>
+<tr><td>_zhaChar</td><td>string</td><td>当前选中的扎牌字符</td></tr>
+<tr><td>_pendingWin</td><td>object</td><td>待确认的胡牌结果</td></tr>
+<tr><td>_penRecord</td><td>object</td><td>碰牌记录（限两对）</td></tr>
+<tr><td>_passRecord</td><td>object</td><td>过牌记录</td></tr>
+<tr><td>gameOver</td><td>boolean</td><td>游戏是否结束</td></tr>
+</table>
+
+<h3>3.3 明牌记录（Meld）</h3>
+
+<p>庄家明牌区每条记录的结构：</p>
+
+<table>
+<tr><th>字段</th><th>类型</th><th>说明</th></tr>
+<tr><td>type</td><td>string</td><td>"pen"（碰）、"zhao"（招）、"zha"（扎）、"chuan"（穿）、"fan"（泛）</td></tr>
+<tr><td>char</td><td>string</td><td>牌面字符</td></tr>
+<tr><td>cards</td><td>array</td><td>牌数据数组（含 v、isWild 等信息）</td></tr>
+<tr><td>inHand</td><td>boolean</td><td>是否为手牌扎牌（true 表示仍在手牌区锁定）</td></tr>
+<tr><td>extraChar</td><td>string</td><td>穿牌/泛牌的第5张字符</td></tr>
+</table>
+
+<h2>4. 游戏流程（生命周期）</h2>
+
+<h3>4.1 整体流程</h3>
+
+<pre>
+initGame()
+  ├─ generateDeck()        → 生成112张牌并洗牌
+  ├─ 发牌：庄家26张，旁家各25张
+  ├─ 庄家摸1张 → 手中26张
+  ├─ checkDealerZhaAndHu() → 检测扎牌/胡牌选项
+  └─ 等待玩家操作
+
+[玩家操作循环]
+  ├─ 出牌: playCard() → checkOpponentResponse()
+  ├─ 旁家响应: 碰/招/扎/吃/过
+  ├─ passToNext() → 流转到下一家
+  ├─ opponentAutoPlay() → AI自动出牌
+  └─ 回到庄家 → animateDealerDraw() → checkDealerZhaAndHu()
+
+[游戏结束]
+  ├─ endGame() → 余牌为0流局
+  ├─ dealerHu() → 庄家自摸胡
+  ├─ checkOpponentHu() → 旁家胡牌
+  └─ showSettlePanel() → 显示结算面板
+</pre>
+
+<h3>4.2 发牌流程（initGame）</h3>
+
+<p><code>generateDeck()</code> 生成 112 张牌：22 种字牌各 5 张（精牌 3 皮 + 2 花，非精牌 5 皮）+ 2 张赖子。使用 Fisher-Yates 洗牌算法。发牌顺序：庄家 26 张 → 下家 25 张 → 上家 25 张。庄家再摸 1 张，手中共 26 张。</p>
+
+<h3>4.3 出牌流程（playCard）</h3>
+
+<p>庄家双击手牌触发 <code>onDblClick</code> → <code>playCard(el)</code>：</p>
+<ol>
+  <li>验证：检查 G.locked、G.gameOver、phase 等</li>
+  <li>从 handCards 中移除该牌</li>
+  <li>从 cardEls 中移除对应 DOM 元素</li>
+  <li>调用 <code>addDiscardCard()</code> 添加到弃牌池</li>
+  <li>调用 <code>trackCardUsed(ch, 'discard')</code> 记录出牌</li>
+  <li>设置 <code>G.lastPlayedChar = ch</code></li>
+  <li>调用 <code>checkOpponentResponse()</code> 检查旁家响应</li>
+</ol>
+
+<h3>4.4 旁家响应流程（checkOpponentResponse）</h3>
+
+<p>按顺序检查每个旁家：</p>
+<ol>
+  <li><strong>胡牌检测</strong>：checkOpponentHu() — 检查旁家是否能胡（自摸或捉统）</li>
+  <li><strong>招牌检测</strong>：手牌中是否有 3 张同字（含赖子）</li>
+  <li><strong>碰牌检测</strong>：手牌中是否有 2 张同字</li>
+  <li><strong>吃牌检测</strong>：听牌状态下是否能形成顺子或对子</li>
+  <li><strong>过</strong>：无响应时 passToNext()</li>
+</ol>
+
+<h3>4.5 庄家摸牌后检测（checkDealerZhaAndHu）</h3>
+
+<p>庄家每次摸牌后调用，按优先级检测：</p>
+<ol>
+  <li><strong>胡牌检测</strong>：checkDealerSelfHu() — 是否能自摸胡牌</li>
+  <li><strong>穿牌检测</strong>：已有扎牌且摸到同字（含赖子通配）</li>
+  <li><strong>泛牌检测</strong>：已有招牌/扎牌 + 手牌中有同字</li>
+  <li><strong>扎牌检测</strong>：手牌中是否有 4 张同字（含赖子）</li>
+  <li><strong>招牌检测</strong>：手牌中是否有 3 张同字</li>
+  <li><strong>碰牌检测</strong>：手牌中是否有 2 张同字</li>
+</ol>
+
+<h2>5. 牌型与规则系统</h2>
+
+<h3>5.1 牌的分类</h3>
+
+<table>
+<tr><th>类别</th><th>字符</th><th>说明</th></tr>
+<tr><td>红牌</td><td>上、大、人、可、知、礼、三、五、七、赖</td><td>红色字体</td></tr>
+<tr><td>黑牌</td><td>化、千、孔、己、二、四、六、八、十、子、土、乙、九</td><td>黑色字体</td></tr>
+<tr><td>红精</td><td>三、五、七</td><td>红色精牌，可显示花精（叁/伍/柒）</td></tr>
+<tr><td>黑精</td><td>乙、九</td><td>黑色精牌，可显示花精（壹/玖）</td></tr>
+<tr><td>赖子</td><td>赖</td><td>万能牌，可通配三、五、七</td></tr>
+</table>
+
+<h3>5.2 牌型定义</h3>
+
+<table>
+<tr><th>牌型</th><th>英文</th><th>牌数</th><th>说明</th></tr>
+<tr><td>顺子</td><td>Sequence</td><td>3</td><td>固定顺子（上大人、可知礼、化三千、孔乙己、七十土、八九子）或数字顺子（乙二三、二三四...八九十）</td></tr>
+<tr><td>对子（眼）</td><td>Pair/Eye</td><td>2</td><td>两张同字；半顺子（口）也算对子</td></tr>
+<tr><td>碰牌</td><td>Pung</td><td>3</td><td>手中 2 张 + 旁家打出 1 张 → 明牌区</td></tr>
+<tr><td>坎牌</td><td>Kong</td><td>3</td><td>手中 3 张同字（保留在手牌区，可灵活调整）</td></tr>
+<tr><td>招牌</td><td>Exposed Kong</td><td>4</td><td>坎牌 + 旁家打出同字 → 明牌区（明杠）</td></tr>
+<tr><td>扎牌</td><td>Concealed Kong</td><td>4</td><td>手中 4 张同字（含赖子）→ 锁牌区（暗杠）</td></tr>
+<tr><td>穿牌</td><td>Upgraded Kong</td><td>5</td><td>扎牌后摸到同字升级（暗杠升级）</td></tr>
+<tr><td>泛牌</td><td>Extended Kong</td><td>5</td><td>招牌后摸到同字，或扎牌后旁家打出同字升级</td></tr>
+</table>
+
+<h3>5.3 合法顺子（14 种）</h3>
+
+<p><strong>固定顺子（6 种）：</strong>上大人、可知礼、化三千、孔乙己、七十土、八九子</p>
+<p><strong>数字顺子（8 种）：</strong>乙二三、二三四、三四五、四五六、五六七、六七八、七八九、八九十</p>
+
+<h3>5.4 听牌规则</h3>
+
+<ul>
+  <li><strong>两听</strong>：7 组型牌（基础/扩展牌型）+ 2 眼（对子或半顺子）</li>
+  <li><strong>摞听</strong>：8 组型牌（基础/扩展牌型）+ 2 眼（对子或半顺子）</li>
+  <li>吃牌：旁家只有在听牌状态才能吃他人打出的牌</li>
+</ul>
+
+<h3>5.5 胡牌规则</h3>
+
+<ul>
+  <li>最低胡数：17 胡（MIN_HU = 17）</li>
+  <li>记分规则：17-21 胡得 3 分，每多 5 胡加 1 分</li>
+  <li>主精：玩家根据手中牌型确定（最大胡数原则）</li>
+  <li>限两对：胡牌前最多两次碰牌机会</li>
+  <li>胡牌不变量：7 个基础/扩展牌型 + 2 眼（两听），或 8 个基础/扩展牌型 + 2 眼（摞听）</li>
+</ul>
+
+<h2>6. 胡牌算法（analyzeHand）</h2>
+
+<h3>6.1 算法架构</h3>
+
+<p>胡牌检测是整个游戏最复杂的部分，采用递归回溯 + 剪枝策略：</p>
+
+<pre>
+analyzeHand(cards, preMelds)
+  └─ _analyzeHandInner(cards, preMelds, allowChuanWildSwap)
+       └─ _analyzeHandCore(cards, preMelds)
+            ├─ tryRes(melds)        → 尝试将结果转为标准格式
+            ├─ enumEyeCandidates()  → 枚举所有可能的眼（对子）
+            ├─ trySingleEye(eye)    → 尝试单眼方案
+            └─ tryTwoEyes(eye1,eye2)→ 尝试两眼方案（两听/摞听）
+</pre>
+
+<h3>6.2 核心拆分器（_partition）</h3>
+
+<p><code>_partition(counts, wildList, wildUsed, handCards, melds, depth)</code> 是递归拆分引擎：</p>
+
+<ol>
+  <li>将手牌按字符统计数量（counts 字典）</li>
+  <li>找到第一个 count > 0 的字符</li>
+  <li>尝试将其匹配为：顺子、坎牌、对子、碰牌</li>
+  <li>赖子通配：用赖子补齐不足的牌数</li>
+  <li>递归处理剩余牌，直到所有牌分配完毕</li>
+  <li>剪枝：余牌数 % 3 快速失败</li>
+</ol>
+
+<h3>6.3 胡数计算（_calcTotalHu）</h3>
+
+<p>每种牌型都有对应的胡数表：</p>
+
+<table>
+<tr><th>牌型</th><th>红精胡数</th><th>黑精胡数</th></tr>
+<tr><td>红碰</td><td>1 胡</td><td>-</td></tr>
+<tr><td>黑碰</td><td>0 胡</td><td>-</td></tr>
+<tr><td>精坎</td><td>查表（如 3 皮=1 胡，2 皮 1 花=2 胡）</td><td>查表</td></tr>
+<tr><td>精招</td><td>查表（如 2 花 2 赖 1 皮=14 胡）</td><td>查表</td></tr>
+<tr><td>精扎</td><td>查表</td><td>查表</td></tr>
+<tr><td>精穿</td><td>查表（如 2 花 2 赖 1 皮=96 胡，主精）</td><td>base(4)+逐张精牌 bonus</td></tr>
+<tr><td>精泛</td><td>查表</td><td>base(4)+逐张精牌 bonus</td></tr>
+<tr><td>对子（眼）</td><td>皮三五七 1 胡，花精翻倍，主精再翻倍</td><td>皮乙皮九 0 胡</td></tr>
+</table>
+
+<p>主精翻倍规则：碰牌、口眼均计主精翻倍 ×2。乙和九绝不可能作为主精。</p>
+
+<h2>7. AI 系统</h2>
+
+<h3>7.1 AI 等级</h3>
+
+<table>
+<tr><th>等级</th><th>名称</th><th>决策函数</th><th>说明</th></tr>
+<tr><td>0</td><td>菜鸟</td><td>_aiBasicDiscard</td><td>随机出牌，偶尔能胡</td></tr>
+<tr><td>1</td><td>高手</td><td>_aiSmartDiscard</td><td>基础启发式，有听牌意识</td></tr>
+<tr><td>2</td><td>大师</td><td>_aiSmartDiscard (L2)</td><td>听牌感知，优化出牌</td></tr>
+<tr><td>3</td><td>老千</td><td>_aiL3Cheat</td><td>完整记牌 + 攻防策略 + 行为分析</td></tr>
+</table>
+
+<h3>7.2 AI 决策架构</h3>
+
+<pre>
+aiPickDiscard(hand, playerIdx)
+  ├─ 菜鸟: _aiBasicDiscard()     → 随机出牌
+  ├─ 高手: _aiSmartDiscard(L1)   → 基础评分
+  ├─ 大师: _aiSmartDiscard(L2)   → 听牌感知 + 预筛选
+  └─ 老千: _aiL3Cheat()          → 多层评分 + 攻防策略
+</pre>
+
+<h3>7.3 老千级 AI（_aiL3Cheat）</h3>
+
+<p>完整的多层决策系统：</p>
+
+<table>
+<tr><th>模块</th><th>函数</th><th>说明</th></tr>
+<tr><td>阶段感知</td><td>_aiGetGamePhase</td><td>发展期（agg=0.6）、过渡期（agg=1.0）、冲刺期（agg=1.5）</td></tr>
+<tr><td>攻防模式</td><td>_aiGetStrategyMode</td><td>attack/defend/balanced</td></tr>
+<tr><td>记牌系统</td><td>trackCardUsed/getRemainingCount</td><td>跟踪每张牌的剩余数量</td></tr>
+<tr><td>危险度评估</td><td>getDangerScore/isDangerousCard</td><td>0~1 连续危险度</td></tr>
+<tr><td>听牌猜测</td><td>_aiBehaviorBasedTingGuess</td><td>基于行为分析猜测旁家听牌</td></tr>
+<tr><td>出牌评分</td><td>多因素加权</td><td>安全分 + 听牌分 + 战略分</td></tr>
+<tr><td>碰牌决策</td><td>_aiDecidePen</td><td>阶段感知阈值</td></tr>
+<tr><td>扎牌决策</td><td>_aiDecideZha</td><td>阶段感知 + 胡数评估</td></tr>
+<tr><td>招牌决策</td><td>_aiDecideZhao</td><td>胡数评估</td></tr>
+<tr><td>性能控制</td><td>_aiPerfStart/Check/Elapsed</td><td>120ms 预算，800 调用限制</td></tr>
+<tr><td>缓存系统</td><td>_aiCalcTingInfoCached</td><td>听牌信息缓存</td></tr>
+<tr><td>预筛选</td><td>_aiPreFilterCandidates</td><td>Top 8 候选牌</td></tr>
+</table>
+
+<h3>7.4 记牌系统</h3>
+
+<p>核心逻辑：只在摸牌时 <code>trackCardUsed</code>（从余牌取出），出牌/碰牌/扎牌等不重复记录。</p>
+
+<p><code>getRemainingCount(ch) = 总数 - 余牌取出 - 庄家手中（含花牌反向映射柒→三）</code></p>
+
+<p>18 处摸牌点注入覆盖庄家/旁家常规 + 招后 + 穿后 + 泛后 + 扎后摸牌。</p>
+
+<h2>8. 音效系统</h2>
+
+<h3>8.1 架构</h3>
+
+<p>使用 Web Audio API 实现，包含音效（sfx）和语音（voice）两个通道：</p>
+
+<table>
+<tr><th>方法</th><th>说明</th></tr>
+<tr><td>SoundManager.play(name)</td><td>播放指定音效</td></tr>
+<tr><td>SoundManager.setSfxEnabled(v)</td><td>启用/禁用音效</td></tr>
+<tr><td>SoundManager.setVoiceEnabled(v)</td><td>启用/禁用语音</td></tr>
+<tr><td>SoundManager.setSfxVolume(v)</td><td>设置音效音量（0-1）</td></tr>
+<tr><td>SoundManager.setVoiceVolume(v)</td><td>设置语音音量（0-1）</td></tr>
+<tr><td>SoundManager.preload(manifest)</td><td>预加载音效</td></tr>
+</table>
+
+<h3>8.2 音效列表</h3>
+
+<table>
+<tr><th>名称</th><th>类型</th><th>说明</th></tr>
+<tr><td>draw</td><td>sfx</td><td>摸牌</td></tr>
+<tr><td>discard</td><td>sfx</td><td>出牌</td></tr>
+<tr><td>pen</td><td>sfx</td><td>碰牌</td></tr>
+<tr><td>zhao</td><td>sfx</td><td>招牌</td></tr>
+<tr><td>zha</td><td>sfx</td><td>扎牌</td></tr>
+<tr><td>chuan</td><td>sfx</td><td>穿牌</td></tr>
+<tr><td>fan</td><td>sfx</td><td>泛牌</td></tr>
+<tr><td>hu</td><td>sfx</td><td>胡牌</td></tr>
+<tr><td>chi</td><td>sfx</td><td>吃牌</td></tr>
+<tr><td>win</td><td>voice</td><td>胜利语音</td></tr>
+<tr><td>lose</td><td>voice</td><td>失败语音</td></tr>
+<tr><td>click</td><td>sfx</td><td>按钮点击</td></tr>
+</table>
+
+<h2>9. 测试系统</h2>
+
+<h3>9.1 AI vs AI 自动对战</h3>
+
+<p>支持两种触发方式：</p>
+<ul>
+  <li><strong>按钮触发</strong>：点击"⚙ 测试"按钮调用 startAiTest(N)</li>
+  <li><strong>URL 参数触发</strong>：step5-hu.html?test=N 自动激活测试模式</li>
+</ul>
+
+<h3>9.2 测试引擎核心逻辑</h3>
+
+<pre>
+startAiTest(totalGames)
+  └─ 设置 AI 等级为"大师"
+  └─ setInterval(200ms) 轮询:
+       ├─ 检测结算面板 → 关闭并 restartGame
+       ├─ 检测流局遮罩 → 关闭并 restartGame
+       ├─ 检测扎牌弹窗 → 自动选择第一个选项
+       ├─ 检测换扎弹窗 → 自动取消
+       ├─ 检测操作按钮 → 胡 > 穿 > 泛 > 招 > 碰 > 扎 > 过
+       ├─ 检测听牌面板 → 隐藏
+       └─ 庄家出牌 → aiPickDiscard + dblclick
+  └─ 统计胜/负/流局/总分
+  └─ 完成后 showStatsAndQuit()
+</pre>
+
+<h2>10. 关键技术细节</h2>
+
+<h3>10.1 显示系统（displayChar）</h3>
+
+<p><code>displayChar(cardData)</code> 根据 cardData.v 决定显示花精还是皮精：</p>
+<ul>
+  <li>v="flower"：三→叁、五→伍、七→柒、乙→壹、九→玖</li>
+  <li>v="skin" 或 undefined：显示原始字符</li>
+  <li>赖子始终显示"赖"</li>
+</ul>
+
+<h3>10.2 扎牌锁区（renderLockArea）</h3>
+
+<p>扎牌（暗杠）在锁牌区渲染，使用 <code>displayChar(card)</code> 显示每张牌。穿牌/泛牌后升级为明牌区显示。</p>
+
+<h3>10.3 赖子通配规则</h3>
+
+<ul>
+  <li>赖子只能通配三、五、七（WILD_USABLE = new Set('三五七')）</li>
+  <li>赖子不能当乙、九用</li>
+  <li>赖子不能当赖子用</li>
+  <li>赖子可参与扎牌→穿牌升级</li>
+  <li>赖子计胡：最少当花精 +2，若本场主精 +4；主精赖子对子计 8 胡</li>
+</ul>
+
+<h3>10.4 碰牌进阶</h3>
+
+<p>碰牌可升级为扎牌→泛牌，或招牌→泛牌。碰牌除计胡计句外已完全丧失自由度，不参与任何后续操作。</p>
+
+<h3>10.5 换扎系统</h3>
+
+<p>当扎牌后摸到同字时触发换扎对话框（huanzha-pick-overlay），玩家可选择：</p>
+<ul>
+  <li>换扎：用新牌替换扎牌中的皮精/赖子</li>
+  <li>穿牌：升级扎牌为穿牌</li>
+  <li>仅解锁：释放扎牌</li>
+</ul>
+
+<h3>10.6 性能优化</h3>
+
+<table>
+<tr><th>优化项</th><th>说明</th></tr>
+<tr><td>听牌缓存</td><td>_aiTingCache 缓存听牌计算结果</td></tr>
+<tr><td>预筛选</td><td>_aiPreFilterCandidates 只评估 Top 8 候选牌</td></tr>
+<tr><td>性能预算</td><td>_aiPerfBudget 限制 120ms / 800 调用</td></tr>
+<tr><td>余牌 %3 剪枝</td><td>_partition 中快速失败</td></tr>
+<tr><td>赖子口眼去重</td><td>48 个候选 → 8 个</td></tr>
+</table>
+
+<h2>11. 函数索引</h2>
+
+<p>按功能模块分类：</p>
+
+<h3>11.1 音效系统</h3>
+<p>_ctx, _beep, _o, preload, play, setSfxEnabled, setVoiceEnabled, setSfxVolume, setVoiceVolume, getSfxEnabled, getVoiceEnabled, _save, loadPrefs, _syncUI, toggleSoundSettings, toggleSfx, toggleVoice, updateSfxVolume, updateVoiceVolume</p>
+
+<h3>11.2 游戏初始化</h3>
+<p>generateDeck, initGame, restartGame, exitGame, showStatsAndQuit</p>
+
+<h3>11.3 牌数据与工具</h3>
+<p>charColor, charVariant, parseDeckCard, displayChar, makeCardData, findInsertIndex, rearrangeHand, layoutInitial, createCardEl</p>
+
+<h3>11.4 界面交互</h3>
+<p>lockHand, lockHandForOpponent, unlockHand, onDown, onTouchDown, beginDrag, onMove, endDrag, highlightNearby, clearHighlights, snapToGroup, onDblClick, playCard, addDiscardCard</p>
+
+<h3>11.5 游戏流程</h3>
+<p>checkOpponentResponse, checkResponseAfterOpponent, passToNext, opponentAutoPlay, animateDealerDraw, updateDeckVisual, endGame, updateUI, updateOpponentCounts, setActivePlayer, setPhase, addLog, buildSideHand</p>
+
+<h3>11.6 庄家操作</h3>
+<p>dealerPen, dealerZhao, dealerZha, dealerCheckChuan, dealerChuan, dealerFan, dealerPass, checkDealerZhaAndHu, checkDealerSelfHu, dealerHu</p>
+
+<h3>11.7 旁家操作</h3>
+<p>opponentPen, opponentZhao, opponentChuan, opponentFan, opponentChi, checkOpponentHu, checkOpponentHuWithCard</p>
+
+<h3>11.8 明牌渲染</h3>
+<p>addDealerMeld, addOpponentMeld, renderLockArea, unlockZha, showHuanZhaDialog, doHuanZhaUnlockOnly, doHuanZha, cancelHuanZha, showZhaPickDialog, cancelZhaPick</p>
+
+<h3>11.9 胡牌算法</h3>
+<p>_classify, _lookup, _lookupJingHu, _calcMeld, _calcTotalHu, _meldLabel, _partition, analyzeHand, _analyzeHandInner, _analyzeHandCore, genCombinations, tryRes, enumEyeCandidates, trySingleEye, tryTwoEyes</p>
+
+<h3>11.10 胡牌结算</h3>
+<p>_huTier, calcPoints, calcScoreDetail, calcTingChars, subtractCards, updateTingHint, highlightWinCards, _huDetailHtml, showTingPopup, showSettleHistory, showRecordPopup, showChatPopup, sendChat, _showPopup, showSettlePanel, closeSettle</p>
+
+<h3>11.11 听牌系统</h3>
+<p>detectTing, showTingPanel, hideTingPanel, invalidateHoverTingCache, ensureHoverTingCache, onCardHover, onCardHoverOut, showHoverTingTip</p>
+
+<h3>11.12 AI 系统</h3>
+<p>aiPickDiscard, _aiPenBenefit, _aiZhaBenefit, _buildPreMelds, _aiCalcTingInfo, _aiDecidePen, _aiDecideZha, _aiGetGamePhase, _aiGetPhaseFactor, _aiEstimateHandStrength, _aiGetStrategyMode, _aiGetDefenseFactor, _aiInitOppBehavior, _aiRecordOppAction, _aiAnalyzeOppBehavior, _aiBehaviorBasedTingGuess, _aiGetBestHuCache, _aiInvalidateBestHuCache, _aiQuickTingCheck, _aiMakeCacheKey, _aiCalcTingInfoCached, _aiClearTingCache, _aiPreFilterCandidates, _aiPerfStart, _aiPerfCheck, _aiPerfElapsed, _aiCheckOpponentChi, _aiDecideZhao, _aiBasicDiscard, _aiSmartDiscard, _aiL3Cheat</p>
+
+<h3>11.13 记牌系统</h3>
+<p>resetDiscardCount, trackCardUsed, trackCardUsedN, getRemainingCount, trackDeal, analyzeOpponentMelds, trackJingFlow, getJingDistribution, guessOpponentTing, isDangerousCard, getDangerScore, printTrackState, getDynamicSortOrder</p>
+
+<h3>11.14 测试系统</h3>
+<p>startAiTest, stopAiTest, handleDealerAutoPlay, runNextAiTest, finishAiTest, showStatsAndQuit</p>
+
+<h3>11.15 AI 等级控制</h3>
+<p>cycleAILevel, updateAILevelDisplay, setAILevel, isTouchDevice</p>
+
+<h2>12. 常量与配置表</h2>
+
+<h3>12.1 核心常量</h3>
+
+<table>
+<tr><th>常量名</th><th>值</th><th>说明</th></tr>
+<tr><td>MIN_HU</td><td>17</td><td>最低胡数</td></tr>
+<tr><td>WILD_CHAR</td><td>'赖'</td><td>赖子字符</td></tr>
+<tr><td>WILD_USABLE</td><td>Set('三五七')</td><td>赖子可通配的字符</td></tr>
+<tr><td>JING_CHARS</td><td>Set('三五七乙九')</td><td>精牌字符</td></tr>
+<tr><td>RED_JING</td><td>Set('三五七')</td><td>红精字符</td></tr>
+<tr><td>BLACK_JING</td><td>Set('乙九')</td><td>黑精字符</td></tr>
+<tr><td>RED_CHARS</td><td>Set('上大人可知礼三五七赖')</td><td>红牌字符</td></tr>
+<tr><td>SORT_ORDER</td><td>'上大人可知礼化三千孔乙己二四五六七八九子十土赖'</td><td>手牌排序顺序</td></tr>
+<tr><td>CARD_W</td><td>40</td><td>牌宽度（px）</td></tr>
+<tr><td>CARD_H</td><td>56</td><td>牌高度（px）</td></tr>
+<tr><td>STEP_X</td><td>40</td><td>牌间距（px）</td></tr>
+</table>
+
+<h3>12.2 胡数表</h3>
+
+<p>精牌胡数通过查表计算，按花/皮/赖子数量组合索引：</p>
+
+<table>
+<tr><th>表名</th><th>索引格式</th><th>说明</th></tr>
+<tr><td>RED_PAIR_TABLE</td><td>'花数_皮数_赖数'</td><td>红精对子胡数，如 '0_2_0': [4,8]（主精翻倍）</td></tr>
+<tr><td>RED_KAN_TABLE</td><td>'花数_皮数_赖数'</td><td>红精坎牌胡数</td></tr>
+<tr><td>RED_ZHAO_TABLE</td><td>'花数_皮数_赖数'</td><td>红精招牌胡数</td></tr>
+<tr><td>BLACK_PAIR_TABLE</td><td>'花数_皮数'</td><td>黑精对子胡数（无赖子）</td></tr>
+<tr><td>BLACK_KAN_TABLE</td><td>'花数_皮数'</td><td>黑精坎牌胡数</td></tr>
+<tr><td>BLACK_ZHAO_TABLE</td><td>'花数_皮数'</td><td>黑精招牌胡数</td></tr>
+</table>
+
+<p>穿牌/泛牌胡数通过 JING_RED_TABLE['chuan'] 和 JING_BLACK_TABLE['chuan'] 查表。</p>
+
+<h2>13. 游戏状态机</h2>
+
+<pre>
+[INIT] → 发牌 → [DEALER_DRAW] 庄家摸牌
+  → [CHECK] checkDealerZhaAndHu
+    ├─ 可胡 → [HU_BUTTON] 显示胡牌按钮
+    ├─ 可穿 → [CHUAN_BUTTON] 显示穿牌按钮
+    ├─ 可泛 → [FAN_BUTTON] 显示泛牌按钮
+    ├─ 可扎 → [ZHA_PICK] 扎牌选择弹窗
+    ├─ 可招 → [ZHAO_BUTTON] 显示招牌按钮
+    ├─ 可碰 → [PEN_BUTTON] 显示碰牌按钮
+    └─ 无操作 → [DEALER_PLAY] 庄家出牌阶段
+  → [DEALER_PLAY] 庄家双击出牌
+  → [WAITING] checkOpponentResponse
+    ├─ 旁家胡 → [OPPONENT_HU]
+    ├─ 旁家招 → [OPPONENT_ZHAO]
+    ├─ 旁家碰 → [OPPONENT_PEN]
+    ├─ 旁家吃 → [OPPONENT_CHI]
+    └─ 旁家过 → [NEXT_PLAYER]
+  → [OPPONENT_PLAY] AI自动出牌
+  → [NEXT_PLAYER] passToNext
+  → [DRAW] 摸牌
+  → [CHECK] ...循环
+
+[GAME_OVER] 条件：
+  ├─ 余牌为0 → 流局
+  ├─ 庄家自摸胡
+  ├─ 旁家胡牌
+  └─ 旁家捉统胡
+</pre>
+
+<h2>14. 浏览器兼容性</h2>
+
+<ul>
+  <li>使用 Web Audio API（_ctx = new (window.AudioContext || window.webkitAudioContext)()）</li>
+  <li>拖拽使用 Pointer Events（onDown/onMove/endDrag）</li>
+  <li>双击使用 dblclick 事件</li>
+  <li>触屏支持（onTouchDown）</li>
+  <li>isTouchDevice() 检测触屏设备</li>
+</ul>
+
+<h2>15. 开发与调试</h2>
+
+<h3>15.1 控制台调试命令</h3>
+
+<table>
+<tr><th>命令</th><th>说明</th></tr>
+<tr><td>printTrackState()</td><td>打印记牌状态</td></tr>
+<tr><td>cycleAILevel()</td><td>切换 AI 等级</td></tr>
+<tr><td>restartGame()</td><td>重新开始游戏</td></tr>
+<tr><td>showStatsAndQuit()</td><td>显示统计信息</td></tr>
+<tr><td>startAiTest(N)</td><td>启动 N 局 AI 测试</td></tr>
+<tr><td>stopAiTest()</td><td>停止 AI 测试</td></tr>
+</table>
+
+<h3>15.2 日志系统</h3>
+
+<p>使用 <code>addLog(who, action, card)</code> 记录操作日志，显示在界面右上角。控制台使用 <code>console.log('[流程] ...')</code> 输出详细流程日志。</p>
+
+<h2>16. 待完善事项</h2>
+
+<ul>
+  <li>音效系统补充：旁家出牌、旁家自摸胡等音效调用尚未完全注入</li>
+  <li>AI vs AI 大规模回归测试（1000+ 局）</li>
+  <li>扎牌赖子重分配：旁家出牌时，若当前扎牌配置无法胡牌，尝试释放含赖子的扎牌重新分配</li>
+  <li>扎牌选项排序：物理 4 张优先于赖子扎，保留赖子用于穿牌</li>
+</ul>
+
+</body>
+</html>

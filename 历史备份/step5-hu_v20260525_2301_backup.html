@@ -1,0 +1,4880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>公安花牌 - Step4 摸牌与完整回合</title>
+<style>
+  :root {
+    --table-bg: #1a472a;
+    --table-felt: #2d6a3f;
+    --card-bg: #f5f0e1;
+    --card-shadow: rgba(0,0,0,0.3);
+    --red: #b91c1c;
+    --black: #1a1a1a;
+    --gold: #b8860b;
+    --gold-light: #daa520;
+    --radius: 5px;
+    --font-cn: "KaiTi", "STKaiti", "FangSong", serif;
+    --font-display: "Noto Serif SC", "SimSun", serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 100vw; height: 100vh; overflow: hidden;
+    background: var(--table-bg);
+    background-image: radial-gradient(ellipse at 50% 50%, var(--table-felt) 0%, var(--table-bg) 75%);
+    font-family: var(--font-cn);
+    color: #e8e0d0;
+  }
+  .table { width: 100%; height: 100%; position: relative; }
+
+  /* ═══════ 牌面 ═══════ */
+  .card {
+    width: 40px; height: 56px; background: var(--card-bg);
+    border-radius: var(--radius); border: 1px solid #d4c9a8;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    position: absolute; cursor: default;
+    box-shadow: 0 1px 3px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    user-select: none; z-index: 1;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 2px;
+    border: 0.5px solid rgba(180,160,120,0.25); border-radius: 3px; pointer-events: none;
+  }
+  /* ═══════ 花精/皮精视觉区分 ═══════ */
+  /* 花精：金色内边框装饰 + 暖色底纹 */
+  .card.v-flower {
+    border-color: #bf9b30;
+    background: linear-gradient(180deg, #fdf6e3 0%, #f5e6c8 100%);
+  }
+  .card.v-flower::before {
+    content: ""; position: absolute; inset: 2px;
+    border: 2.5px solid rgba(191,155,48,0.7);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  /* 花精精牌额外装饰：虚线内框 */
+  .card.v-flower.hua-mei::before,
+  .card.v-flower.hua-lan::before,
+  .card.v-flower.hua-zhu::before,
+  .card.v-flower.hua-xia::before,
+  .card.v-flower.hua-dong::before {
+    border: 2px dashed rgba(191,155,48,0.8);
+    inset: 2px;
+  }
+  .card-char { font-size: 20px; font-weight: 700; font-family: var(--font-display); line-height: 1; }
+  .card-char.red   { color: var(--red); }
+  .card-char.black { color: var(--black); }
+  /* 花精底纹 — 梅(三)、兰(五)、竹(七) */
+  .card.hua-mei { background: linear-gradient(160deg, #fff0f3 0%, #fce7f3 40%, #fbcfe8 100%); border-color: #ec4899; }
+  .card.hua-mei::after { content: ""; position: absolute; inset: 0; background: url('mei.png') center/contain no-repeat; opacity: 0.18; border-radius: 4px; pointer-events: none; }
+  .card.hua-lan { background: linear-gradient(160deg, #eff6ff 0%, #dbeafe 40%, #bfdbfe 100%); border-color: #3b82f6; }
+  .card.hua-lan::after { content: ""; position: absolute; inset: 0; background: url('lan.png') center/contain no-repeat; opacity: 0.18; border-radius: 4px; pointer-events: none; }
+  .card.hua-zhu { background: linear-gradient(160deg, #f0fdf4 0%, #dcfce7 40%, #bbf7d0 100%); border-color: #22c55e; }
+  .card.hua-zhu::after { content: ""; position: absolute; inset: 0; background: url('zhu.png') center/contain no-repeat; opacity: 0.18; border-radius: 4px; pointer-events: none; }
+  /* 花精底纹 — 夏(乙)、冬(九) */
+  .card.hua-xia { background: linear-gradient(160deg, #fffbeb 0%, #fef3c7 40%, #fde68a 100%); border-color: #e5b84c; }
+  .card.hua-xia::after { content: ""; position: absolute; inset: 0; background: url('xia.png') center/contain no-repeat; opacity: 0.18; border-radius: 4px; pointer-events: none; }
+  .card.hua-dong { background: linear-gradient(160deg, #f8fafc 0%, #e2e8f0 40%, #cbd5e1 100%); border-color: #94a3b8; }
+  .card.hua-dong::after { content: ""; position: absolute; inset: 0; background: url('dong.png') center/contain no-repeat; opacity: 0.18; border-radius: 4px; pointer-events: none; }
+  .card.laizi {
+    background: linear-gradient(160deg, #fef3c7 0%, #fde68a 50%, #fbbf24 100%);
+    border-color: var(--gold);
+  }
+  .card.laizi::after { content: ""; position: absolute; inset: 0; background: url('ju.png') center/contain no-repeat; opacity: 0.22; border-radius: 4px; pointer-events: none; }
+  .card.laizi .card-char {
+    background: linear-gradient(180deg, var(--red), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; font-size: 22px;
+  }
+  .card-back { background: linear-gradient(135deg, #7c3aed, #4c1d95); border-color: #5b21b6; }
+  .card-back::before { border-color: rgba(167,139,250,0.3); }
+  .card-back-text { font-size: 14px; color: rgba(255,255,255,0.3); font-family: var(--font-display); }
+
+  .card.in-hand { cursor: grab; }
+  .card.in-hand.locked { cursor: not-allowed; opacity: 0.7; pointer-events: none; }
+
+  /* 扎牌在手牌区的样式 - 细边框标记+锁死 */
+  .card.in-hand.zha-locked {
+    border: 2px solid var(--gold, #d4a857);
+    box-shadow: 0 0 6px rgba(212, 168, 87, 0.5);
+    cursor: not-allowed !important;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+  .card.in-hand.zha-locked .card-char::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 2px; right: 2px;
+    height: 2px;
+    background: var(--gold, #d4a857);
+    border-radius: 0 0 2px 2px;
+  }
+
+
+
+  /* 旁家操作时: 手牌可整理，但不可出牌（通过playCard中的检查控制） */
+  .hand-zone.btns-locked .card.in-hand:not(.zha-locked) {
+    cursor: grab;
+    pointer-events: auto;
+    opacity: 1;
+  }
+  .hand-zone.btns-locked .card.in-hand:not(.zha-locked):hover {
+    box-shadow: 0 4px 12px var(--card-shadow);
+    z-index: 5;
+  }
+  /* btns-locked模式下隐藏提示 */
+  .hand-zone.btns-locked .hand-zone-hint {
+    display: none;
+  }
+
+
+  .card.in-hand:not(.locked):hover { box-shadow: 0 4px 12px var(--card-shadow); z-index: 5; }
+  .card.in-hand:active { cursor: grabbing; }
+  .card.dragging { z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.5); transform: scale(1.06); cursor: grabbing; }
+  .card.grouped { box-shadow: 0 0 0 2px rgba(59,130,246,0.6), 0 2px 8px var(--card-shadow); }
+
+  .card.flying { position: fixed !important; z-index: 200; transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94); pointer-events: none; }
+  .card.just-played { box-shadow: 0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.4); z-index: 2; }
+
+  /* 摸牌入场动画 */
+  .card.draw-anim {
+    position: fixed !important; z-index: 200;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  @keyframes drawGlow {
+    0%,100% { box-shadow: 0 0 8px rgba(251,191,36,0.3); }
+    50% { box-shadow: 0 0 20px rgba(251,191,36,0.7), 0 0 40px rgba(251,191,36,0.3); }
+  }
+  .card.just-drawn {
+    animation: drawGlow 0.6s ease-in-out 2;
+    box-shadow: 0 0 0 2px #fbbf24, 0 0 12px rgba(251,191,36,0.4);
+    z-index: 10;
+  }
+
+  /* 余牌堆发牌动画 */
+  .card.deck-fly {
+    position: fixed !important; z-index: 200;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    pointer-events: none;
+  }
+
+  /* 明牌组 */
+  .meld-group {
+    display: inline-flex; gap: 2px; padding: 4px 6px;
+    background: rgba(0,0,0,0.12); border-radius: 6px;
+    border: 1px dashed rgba(255,255,255,0.06);
+  }
+  .meld-group .card { position: relative; cursor: default; width: 32px; height: 44px; }
+  .meld-group .card .card-char { font-size: 16px; }
+  .meld-group .card + .card { margin-left: 2px; }
+  .meld-group .card.open-pen::after,
+  .meld-group .card.open-zhao::after {
+    content: ""; position: absolute; bottom: -3px; left: 3px; right: 3px;
+    height: 3px; border-radius: 0 0 4px 4px;
+  }
+  .meld-group .card.open-pen::after  { background: #22c55e; }
+  .meld-group .card.open-zhao::after { background: #3b82f6; }
+
+  /* 扎牌（暗杠）样式 - 横放 */
+  .meld-group .card.hidden-kan {
+    width: 22px; height: 32px; font-size: 10px;
+    background: linear-gradient(135deg, #e8e0c8 0%, #d4c8a8 100%);
+    border: 1px solid #b0a080;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* 穿牌（明杠+补牌）样式 */
+  .meld-group .card.chuan-extra {
+    border: 2px dashed var(--gold);
+    margin-left: -8px;
+  }
+  /* 泛牌（暗杠+补牌）样式 - 4暗+1补 */
+  .meld-group .card.fan-extra {
+    border: 2px dashed #888;
+    margin-left: -8px;
+  }
+  .meld-label {
+    font-size: 9px; text-align: center; margin-top: 1px;
+    color: #999; white-space: nowrap;
+  }
+
+  .melds-col { display: flex; flex-direction: column; gap: 5px; }
+
+  /* ═══════ 庄家手牌区 ═══════ */
+  .hand-zone {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    width: 70vw; height: 160px;
+    background: rgba(234,179,8,0.06);
+    border: 1px dashed rgba(234,179,8,0.15);
+    border-radius: 8px; overflow: visible;
+  }
+  .hand-zone-hint {
+    position: absolute; top: 4px; left: 10px;
+    font-size: 10px; color: rgba(234,179,8,0.35); pointer-events: none;
+  }
+  .hand-zone.locked { border-color: rgba(234,179,8,0.08); background: rgba(234,179,8,0.02); }
+
+  /* ═══════ 其它区域 ═══════ */
+  .z-deck {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,0,0,0.3); padding: 6px 14px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06); z-index: 15;
+  }
+  .draw-pile { display: flex; gap: 1px; }
+  .draw-pile .card { width: 28px; height: 40px; position: relative; }
+  .draw-pile .card-back-text { font-size: 10px; }
+  .draw-count { font-size: 13px; color: var(--gold-light); font-weight: 600; }
+
+  .z-discard {
+    position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.1); border-radius: 10px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 1px; align-content: flex-start;
+    z-index: 5; min-width: 80px; min-height: 50px;
+  }
+  .z-discard .card { width: 30px; height: 42px; position: relative; margin: 1px; }
+  .z-discard .card-char { font-size: 15px; }
+
+  .z-game-status {
+    position: absolute; top: 12px; left: 15%;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.8;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 20; min-width: 140px;
+  }
+  .z-game-status .label { color: rgba(245,240,225,0.45); }
+  .z-game-status .val { color: var(--gold-light); font-weight: 600; }
+  .z-game-status .val.waiting { color: #ef4444; animation: blink 1s step-end infinite; }
+  .z-game-status .val.drawing { color: #22c55e; }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+
+  .log-bar {
+    position: absolute; top: 12px; right: 15%;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 6px 12px; border-radius: 8px;
+    font-size: 11px; line-height: 1.6;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 20; max-width: 200px; color: rgba(245,240,225,0.6);
+  }
+  .log-bar .log-title { font-weight: 700; color: var(--gold-light); font-size: 11px; margin-bottom: 2px; }
+  .log-bar .log-item { padding: 1px 0; }
+  .log-bar .log-who { color: rgba(245,240,225,0.8); font-weight: 600; }
+  .log-bar .log-act { color: var(--gold-light); }
+
+  .player-info {
+    position: absolute;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    padding: 8px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    z-index: 15; font-size: 12px; line-height: 1.6;
+  }
+  .player-info .p-name { font-weight: 700; color: #e8e0d0; }
+  .player-info .p-stats { color: rgba(245,240,225,0.5); font-size: 11px; }
+  .player-info .p-stats span { color: var(--gold-light); font-weight: 600; }
+  .player-info.active { border-color: var(--gold); }
+  .player-info.active .p-name { color: var(--gold-light); }
+
+  .side-hand-zone {
+    position: absolute; width: 150px; height: 340px;
+    display: flex; align-items: center; justify-content: center; z-index: 10;
+  }
+  .side-hand-zone .hand { display: flex; align-items: center; transform: rotate(180deg); }
+  .side-hand-zone .hand .card + .card { margin-left: -8px; }
+
+  .side-meld-zone {
+    position: absolute; width: 100px; height: 340px;
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+    z-index: 10;
+  }
+
+  /* ═══════ 锁牌区（扎牌存放） ═══════ */
+  .z-lock-area {
+    position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    gap: 12px; min-height: 54px; min-width: 80px; z-index: 11;
+  }
+  .lock-group {
+    display: flex; flex-direction: row; align-items: center; gap: 3px;
+    padding: 4px 8px; background: rgba(0,0,0,0.25); border-radius: 6px;
+    border: 1px solid rgba(212,168,87,0.4); position: relative;
+  }
+  .lock-group .lock-top {
+    display: flex; gap: 3px;
+  }
+  .lock-group .lock-top .card {
+    width: 32px; height: 44px; position: relative; cursor: default;
+  }
+  .lock-group .lock-top .card .card-char { font-size: 16px; }
+  .lock-group .lock-wild-tag {
+    position: absolute; top: -6px; right: -6px;
+    background: #f59e0b; color: #fff; font-size: 9px;
+    padding: 1px 4px; border-radius: 8px; font-weight: bold;
+  }
+  .lock-group .lock-label {
+    font-size: 9px; color: #d4a857; text-align: center; white-space: nowrap;
+    margin-left: 4px;
+  }
+  .lock-group .lock-btn {
+    position: absolute; top: -8px; left: -8px;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(239,68,68,0.9); color: #fff;
+    font-size: 10px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border: none; z-index: 2;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .lock-group:hover .lock-btn { opacity: 1; }
+
+  .z-meld-bottom {
+    position: absolute; bottom: 180px; left: 50%; transform: translateX(-50%);
+    width: 500px;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    gap: 12px; padding-top: 4px;
+    z-index: 10;
+  }
+  .z-meld-bottom .melds-col {
+    display: flex; flex-direction: row; gap: 8px; align-items: center;
+  }
+  .z-meld-bottom .meld-group {
+    flex-direction: row; align-items: center; margin-top: 0;
+  }
+  .z-meld-bottom .meld-label {
+    position: relative; top: auto; left: auto; transform: none;
+    margin-left: 4px;
+  }
+
+  /* ═══════ 操作按钮 ═══════ */
+  .action-panel {
+    position: absolute; z-index: 30;
+    display: none; gap: 4px;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+    padding: 6px 10px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .action-panel.show { display: flex; }
+  /* 扎牌选择弹窗 */
+  .zha-pick-overlay {
+    position: absolute; z-index: 50;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(15,23,15,0.95); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
+    padding: 16px 20px; display: none; flex-direction: column;
+    align-items: center; gap: 12px; min-width: 160px;
+  }
+  .zha-pick-overlay.show { display: flex; }
+  .zha-pick-title {
+    color: #f5f0e1; font-size: 14px; font-family: var(--font-cn);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 8px; width: 100%; text-align: center;
+  }
+  .zha-pick-options { display: flex; gap: 12px; justify-content: center; }
+  .zha-pick-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    cursor: pointer; padding: 8px 14px; border-radius: 8px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    transition: all 0.15s;
+  }
+  .zha-pick-btn:hover { background: rgba(255,255,255,0.14); border-color: rgba(234,179,8,0.5); }
+  .zha-pick-ch {
+    font-size: 28px; font-weight: bold; width: 44px; height: 58px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; background: rgba(245,240,225,0.92);
+    border: 1px solid rgba(0,0,0,0.12);
+  }
+  .zha-pick-ch.red { color: #c0392b; }
+  .zha-pick-ch.black { color: #2c3e50; }
+  .zha-pick-label { color: #f5f0e1; font-size: 12px; font-family: var(--font-cn); }
+  .zha-pick-cancel {
+    color: rgba(255,255,255,0.5); font-size: 12px; cursor: pointer;
+    padding: 4px 16px; border-radius: 4px; font-family: var(--font-cn);
+  }
+  .zha-pick-cancel:hover { color: rgba(255,255,255,0.9); }
+  .act-btn {
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    color: #f5f0e1; border: 1px solid rgba(255,255,255,0.15);
+    padding: 3px 14px; border-radius: 4px;
+    font-size: 13px; font-family: var(--font-cn);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  }
+  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--gold-light); color: var(--gold-light); }
+  .act-btn.highlight {
+    background: rgba(217,119,6,0.85); border-color: var(--gold); color: #fff;
+    animation: pulse 0.8s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.4); }
+    50% { box-shadow: 0 0 8px 2px rgba(217,119,6,0.6); }
+  }
+  .panel-bottom { bottom: 175px; left: 50%; transform: translateX(-50%); }
+
+  .tip-bar {
+    position: absolute; bottom: 174px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    padding: 4px 14px; border-radius: 5px;
+    font-size: 11px; color: rgba(245,240,225,0.5);
+    z-index: 25; pointer-events: none; white-space: nowrap;
+    transition: opacity 0.5s;
+  }
+
+  /* 流局遮罩 */
+  .game-over-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 500; flex-direction: column; gap: 16px;
+  }
+  .game-over-overlay.show { display: flex; }
+  .game-over-title {
+    font-size: 36px; font-weight: 700; color: var(--gold-light);
+    font-family: var(--font-display);
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  }
+  .game-over-sub {
+    font-size: 16px; color: rgba(245,240,225,0.7);
+  }
+  .game-over-btn {
+    margin-top: 12px; padding: 8px 32px;
+    background: rgba(217,119,6,0.85); border: 1px solid var(--gold); color: #fff;
+    border-radius: 6px; font-size: 16px; font-family: var(--font-cn);
+    cursor: pointer;
+  }
+  .game-over-btn:hover { background: rgba(217,119,6,1); }
+
+  /* 胡牌高亮 */
+  .card.win-highlight {
+    box-shadow: 0 0 0 2px #f59e0b, 0 0 16px rgba(245,158,11,0.6) !important;
+    z-index: 20 !important;
+    transform: translateY(-4px);
+    transition: all 0.3s ease;
+  }
+  .card.win-highlight.meld-kan {
+    box-shadow: 0 0 0 2px #3b82f6, 0 0 12px rgba(59,130,246,0.5) !important;
+  }
+  .card.win-highlight.meld-pair {
+    box-shadow: 0 0 0 2px #ef4444, 0 0 12px rgba(239,68,68,0.5) !important;
+  }
+  .card.win-highlight.meld-seq {
+    box-shadow: 0 0 0 2px #10b981, 0 0 12px rgba(16,185,129,0.5) !important;
+  }
+
+  /* 胡牌提示按钮 */
+  .act-btn.win-btn {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 6px 16px;
+    animation: winPulse 0.8s ease-in-out infinite;
+  }
+  @keyframes winPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
+  }
+
+  /* 结算面板 */
+  .settle-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+  }
+  .settle-panel {
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #f59e0b;
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 500px;
+    width: 90vw;
+    color: #e5e7eb;
+    box-shadow: 0 0 40px rgba(245,158,11,0.3);
+  }
+  .settle-title {
+    font-size: 28px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #f59e0b;
+  }
+  .settle-winner {
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #fbbf24;
+  }
+  .settle-melds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+  .settle-meld-group {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .settle-meld-label {
+    font-size: 11px;
+    color: #9ca3af;
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+  .settle-meld-group {
+    position: relative;
+    margin-top: 10px;
+  }
+    .settle-meld-group .mini-card.mini-flower {
+    border: 1.5px solid #bf9b30;
+    box-shadow: inset 0 0 0 0.5px rgba(191,155,48,0.3);
+  }
+  .settle-meld-group .mini-card.wild-in-meld {
+    border: 2px solid #f59e0b;
+    color: #f59e0b !important;
+    background: #fffbeb;
+  }
+  .settle-meld-group .mini-card {
+    width: 30px; height: 42px;
+    background: var(--card-bg);
+    border-radius: 4px;
+    border: 1px solid #d4c9a8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+  }
+  .settle-meld-group .mini-card.red { color: #dc2626; }
+  .settle-meld-group .mini-card.black { color: #1a1a1a; }
+  .settle-hu-breakdown {
+    font-size: 13px;
+    line-height: 1.8;
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+  }
+  .settle-hu-row {
+    display: flex;
+    justify-content: space-between;
+  }
+  .settle-hu-row .hu-label { color: #9ca3af; }
+  .settle-hu-row .hu-val { color: #fbbf24; font-weight: bold; }
+  .settle-total {
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: #f59e0b;
+    margin-bottom: 12px;
+  }
+  .settle-score-detail {
+    margin-bottom: 20px;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 2;
+  }
+  .settle-score-detail .score-row.winner {
+    color: #34d399;
+    font-weight: bold;
+  }
+  .settle-score-detail .score-row.loser {
+    color: #f87171;
+  }
+  .settle-restart-btn {
+    display: block;
+    margin: 0 auto;
+    padding: 10px 36px;
+    font-size: 16px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: transform 0.15s;
+  }
+  .settle-restart-btn:hover { transform: scale(1.05); }
+
+  
+  /* ── 听牌提示 ── */
+  .ting-badge {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(145deg, #1a1a2e, #16213e);
+    border: 2px solid #22c55e;
+    border-radius: 16px;
+    padding: 20px 28px;
+    max-width: 420px;
+    width: 88vw;
+    color: #e5e7eb;
+    z-index: 900;
+    box-shadow: 0 0 30px rgba(34,197,94,0.35);
+    animation: fadeIn 0.25s ease;
+    cursor: pointer;
+  }
+  .ting-badge-title {
+    font-size: 20px; font-weight: bold; text-align: center;
+    margin-bottom: 14px; color: #22c55e;
+  }
+  .ting-badge-chars {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; margin-bottom: 12px;
+  }
+  .ting-char-item {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(34,197,94,0.4);
+    border-radius: 8px; padding: 8px 10px; min-width: 52px;
+    transition: background 0.15s;
+  }
+  .ting-char-item:hover { background: rgba(34,197,94,0.15); }
+  .ting-char-item .ting-ch {
+    font-size: 18px; font-weight: bold;
+  }
+  .ting-char-item .ting-ch.red { color: #dc2626; }
+  .ting-char-item .ting-ch.black { color: #e5e7eb; }
+  .ting-char-item .ting-hu {
+    font-size: 11px; color: #9ca3af;
+  }
+  .ting-rem {
+    font-size: 11px; color: #22c55e; font-weight: bold;
+  }
+  .ting-rem-zero {
+    color: #ef4444; text-decoration: line-through; opacity: 0.6;
+  }
+  .ting-type-label {
+    text-align: center; font-size: 13px; color: #9ca3af;
+    margin-top: 6px;
+  }
+  .ting-close-hint {
+    text-align: center; font-size: 11px; color: #6b7280;
+    margin-top: 10px;
+  }
+.ting-hint {
+  position: fixed;
+  bottom: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.85);
+  color: #ffd700;
+  padding: 6px 18px;
+  border-radius: 20px;
+  font-size: 14px;
+  z-index: 1000;
+  white-space: nowrap;
+  border: 1px solid rgba(255,215,0,0.4);
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.ting-hint .ting-char {
+  display: inline-block;
+  margin: 0 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 16px;
+}
+.ting-hint .ting-char.red { color: #ff6b6b; }
+.ting-hint .ting-char.black { color: #ccc; }
+
+/* ═══ 工具栏面板(右下角) ═══ */
+.tool-bar {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.tool-btn {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #e5e7eb;
+  font-family: var(--font-cn);
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: all 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tool-btn:hover { background: rgba(245,158,11,0.25); border-color: #f59e0b; color: #fbbf24; }
+.tool-btn:active { transform: scale(0.96); }
+.tool-btn .badge {
+  display: inline-block;
+  background: #f59e0b;
+  color: #1a1a2e;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* ═══ 弹出面板通用 ═══ */
+.popup-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 900;
+  animation: fadeIn 0.25s ease;
+}
+.popup-panel {
+  background: linear-gradient(145deg, #1a1a2e, #16213e);
+  border: 2px solid #f59e0b;
+  border-radius: 16px;
+  padding: 24px 28px;
+  max-width: 480px;
+  width: 92vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #e5e7eb;
+  box-shadow: 0 0 40px rgba(245,158,11,0.25);
+}
+.popup-panel::-webkit-scrollbar { width: 4px; }
+.popup-panel::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.4); border-radius: 2px; }
+.popup-title {
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 16px;
+  color: #f59e0b;
+}
+.popup-close {
+  display: block;
+  margin: 16px auto 0;
+  background: rgba(245,158,11,0.15);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+  font-family: var(--font-cn);
+  font-size: 14px;
+  padding: 6px 28px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.popup-close:hover { background: rgba(245,158,11,0.35); }
+
+/* ═══ 查听牌面板 ═══ */
+.ting-popup-chars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.ting-popup-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 8px 12px 6px;
+  min-width: 52px;
+}
+.ting-popup-ch {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1.2;
+}
+.ting-popup-ch.red { color: #ef4444; }
+.ting-popup-ch.black { color: #e5e7eb; }
+.ting-popup-ch.gold { color: #f59e0b; }
+.ting-popup-hu {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+.ting-popup-rem {
+  font-size: 11px;
+  margin-top: 1px;
+}
+.ting-popup-rem.has { color: #4ade80; }
+.ting-popup-rem.zero { color: #ef4444; text-decoration: line-through; }
+.ting-popup-type {
+  text-align: center;
+  font-size: 14px;
+  color: #fbbf24;
+  margin-bottom: 10px;
+}
+
+/* ═══ 战绩面板 ═══ */
+.record-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 10px 0;
+}
+.record-table th {
+  background: rgba(245,158,11,0.15);
+  color: #fbbf24;
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(245,158,11,0.3);
+  font-weight: bold;
+}
+.record-table td {
+  padding: 5px 8px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.record-table .win { color: #4ade80; }
+.record-table .lose { color: #f87171; }
+.record-summary {
+  text-align: center;
+  font-size: 15px;
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+}
+.record-summary .total-win { color: #4ade80; font-weight: bold; }
+.record-summary .total-lose { color: #f87171; font-weight: bold; }
+.record-summary .total-even { color: #fbbf24; }
+
+/* ═══ 快捷发言面板 ═══ */
+.chat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0;
+}
+.chat-item {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+  cursor: pointer;
+  font-family: var(--font-cn);
+  font-size: 14px;
+  color: #e5e7eb;
+  transition: all 0.15s;
+}
+.chat-item:hover { background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fbbf24; }
+.chat-item:active { transform: scale(0.97); }
+.chat-bubble {
+  position: fixed;
+  z-index: 800;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(245,158,11,0.5);
+  border-radius: 12px;
+  padding: 10px 18px;
+  color: #fbbf24;
+  font-family: var(--font-cn);
+  font-size: 16px;
+  max-width: 200px;
+  text-align: center;
+  animation: chatFloat 2.5s ease forwards;
+  pointer-events: none;
+}
+@keyframes chatFloat {
+  0% { opacity: 0; transform: translateY(10px); }
+  15% { opacity: 1; transform: translateY(0); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-30px); }
+}
+
+/* ═══ 结算表保存 & 查看按钮 ═══ */
+.no-settle-msg {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  padding: 20px;
+}
+
+</style>
+</head>
+<body>
+<div class="table">
+
+  <!-- 余牌区 -->
+  <div class="z-deck" id="deck-zone">
+    <div class="draw-count">余牌 <span id="deck-count">36</span></div>
+    <div class="draw-pile">
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+      <div class="card card-back"><span class="card-back-text">花</span></div>
+    </div>
+  </div>
+
+  <!-- 游戏状态 -->
+  <div class="z-game-status">
+    <div><span class="label">局数:</span> <span class="val">第1局</span></div>
+    <div><span class="label">回合:</span> <span class="val" id="round-num">0</span></div>
+    <div><span class="label">阶段:</span> <span class="val" id="phase-text">庄家出牌</span></div>
+    <div><span class="label">主精:</span> <span class="val">五(花精)</span></div>
+    <div><span class="label">副精:</span> <span class="val">无</span></div>
+  </div>
+
+  <!-- 操作日志 -->
+  <div class="log-bar">
+    <div class="log-title">操作记录</div>
+    <div id="log-list"></div>
+  </div>
+
+  <!-- 弃牌区 -->
+  <div class="z-discard" id="discard-pool"></div>
+
+  <!-- 上家 -->
+  <div class="player-info" id="pi-right" style="top:12px;right:12px;">
+    <div class="p-name">上家</div>
+    <div class="p-stats">手牌 <span id="right-count">25</span> + 明牌 <span id="right-meld">0</span></div>
+  </div>
+  <div class="side-meld-zone" style="top:14%;right:170px;" id="melds-right"></div>
+  <div class="side-hand-zone" style="top:14%;right:12px;">
+    <div class="hand" id="hand-right"></div>
+  </div>
+
+  <!-- 下家 -->
+  <div class="player-info" id="pi-left" style="top:12px;left:12px;">
+    <div class="p-name">下家</div>
+    <div class="p-stats">手牌 <span id="left-count">25</span> + 明牌 <span id="left-meld">0</span></div>
+  </div>
+  <div class="side-hand-zone" style="top:14%;left:12px;">
+    <div class="hand" id="hand-left"></div>
+  </div>
+  <div class="side-meld-zone" style="top:14%;left:170px;" id="melds-left"></div>
+
+  <!-- 庄家信息 -->
+  <div class="player-info active" id="pi-bottom" style="bottom:8px;left:2%;">
+    <div class="p-name">庄家(你)</div>
+    <div class="p-stats">手牌 <span id="hand-count">26</span></div>
+  </div>
+
+  <!-- 庄家明牌区 -->
+    <!-- 庄家锁牌区（扎牌存放） -->
+  <div class="z-lock-area" id="lock-area"></div>
+
+  <div class="z-meld-bottom" id="melds-bottom"></div>
+
+  <!-- 听牌提示 -->
+  <div class="ting-hint" id="ting-hint" style="display:none;"></div>
+
+  <!-- 庄家操作按钮 -->
+  <div class="action-panel panel-bottom" id="actions-dealer">
+    <button class="act-btn win-btn" id="btn-hu" onclick="dealerHu()" style="display:none;">胡</button>
+    <button class="act-btn highlight" id="btn-zhao" onclick="dealerZhao()" style="display:none;">招</button>
+    <button class="act-btn highlight" id="btn-pen" onclick="dealerPen()" style="display:none;">碰</button>
+    <button class="act-btn" id="btn-zha" onclick="dealerZha()" style="display:none;">扎</button>
+    <button class="act-btn" id="btn-fan" onclick="dealerFan()" style="display:none;">泛</button>
+    <button class="act-btn" id="btn-chuan" onclick="dealerChuan()" style="display:none;">穿</button>
+    <button class="act-btn" id="btn-pass" onclick="dealerPass()" style="display:none;">过</button>
+  </div>
+
+  <!-- 扎牌选择弹窗 -->
+  <div class="zha-pick-overlay" id="zha-pick-overlay">
+    <div class="zha-pick-title">选择扎牌</div>
+    <div class="zha-pick-options" id="zha-pick-options"></div>
+    <div class="zha-pick-cancel" onclick="cancelZhaPick()">取消</div>
+  </div>
+
+  <!-- 庄家手牌区 -->
+  <div class="hand-zone" id="hand-zone">
+    <span class="hand-zone-hint">拖动整理 | 双击出牌</span>
+  </div>
+
+  <!-- 操作提示 -->
+  <div class="tip-bar" id="tip-bar">双击手牌打出，出牌后等待旁家响应</div>
+
+  <!-- 流局遮罩 -->
+  <div class="game-over-overlay" id="game-over">
+    <div class="game-over-title">流 局</div>
+    <div class="game-over-sub" id="game-over-sub">余牌已耗尽</div>
+    <button class="game-over-btn" onclick="restartGame()">再来一局</button>
+  </div>
+
+<div id="settle-container"></div>
+<div id="ting-container"></div>
+
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   Step4: 摸牌可视化 + 完整回合流转 + 流局检测
+   ═══════════════════════════════════════════════════ */
+
+const CARD_W = 40, CARD_H = 56, STEP_X = 40;
+const handZone = document.getElementById('hand-zone');
+const discardPool = document.getElementById('discard-pool');
+const tipBar = document.getElementById('tip-bar');
+const actionsDealer = document.getElementById('actions-dealer');
+const deckZone = document.getElementById('deck-zone');
+
+/* ═══ 牌堆 ═══ */
+function generateDeck() {
+  // 22种字面×5张(精牌3皮2花,非精5皮) + 2赖子 = 112张
+  // 精牌(三五七乙九)每字5张: 3花+2皮, 非精牌全皮
+  const allChars = [];
+  const all22 = ['上','大','人','可','知','礼','三','五','七',
+    '化','千','孔','己','二','四','六','八','十','子','土','乙','九'];
+  all22.forEach(ch => {
+    const isJ = JING_CHARS.has(ch);
+    if (isJ) {
+      // 精牌(三五七乙九): 3皮+2花=5张，每种精牌最多2个花
+      for (let i = 0; i < 2; i++) allChars.push(ch + ':flower');
+      for (let i = 0; i < 3; i++) allChars.push(ch + ':skin');
+    } else {
+      for (let i = 0; i < 5; i++) allChars.push(ch + ':skin');
+    }
+  });
+  allChars.push('赖:skin', '赖:skin');
+  // Fisher-Yates shuffle
+  for (let i = allChars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allChars[i], allChars[j]] = [allChars[j], allChars[i]];
+  }
+  return allChars;
+}
+
+function charColor(ch) {
+  return ['上','大','人','可','知','礼','三','五','七','赖'].includes(ch) ? 'red' : 'black';
+}
+
+function charVariant(ch) {
+  if (ch === '赖') return 'laizi';
+  if (ch === '三') return 'hua-mei';
+  if (ch === '五') return 'hua-lan';
+  if (ch === '七') return 'hua-zhu';
+  if (ch === '乙') return 'hua-xia';
+  if (ch === '九') return 'hua-dong';
+  // 梅兰竹菊夏冬底纹也适用于同组的非精牌字
+  if ('上大人'.includes(ch)) return 'hua-mei';
+  if ('可'.includes(ch)) return 'hua-mei';     // 可知礼同属一组
+  if ('知礼'.includes(ch)) return 'hua-mei';  // 可知礼同属一组
+  return '';
+}
+
+// ═══ 胡牌检测常量（必须在 makeCardData 之前，避免 const TDZ）═══
+const MIN_HU = 17;
+// ── 花牌胡牌检测器（支持口眼） ──
+// 顺子定义（与规则引擎一致）
+// ═══════════════════════════════════════════════════
+// 常量定义
+// ═══════════════════════════════════════════════════
+const FIXED_SEQS = [
+  ['上','大','人'], ['可','知','礼'], ['化','三','千'],
+  ['孔','乙','己'], ['七','十','土'], ['八','九','子'],
+  // 数字顺子（连续数字三张一组，共8种）
+  ['乙','二','三'], ['二','三','四'], ['三','四','五'], ['四','五','六'],
+  ['五','六','七'], ['六','七','八'], ['七','八','九'], ['八','九','十']
+];
+const NUM_CHARS = ['乙','二','三','四','五','六','七','八','九','十'];
+const ALL_SEQS = [...FIXED_SEQS]; // 14种（6固定+8数字），无需循环生成
+
+const RED_SEQ_FROZEN = new Set([new Set(['上','大','人']), new Set(['可','知','礼'])]);
+
+// 精牌集合
+const JING_CHARS = new Set('三五七乙九');
+const RED_JING = new Set('三五七');
+const BLACK_JING = new Set('乙九');
+const RED_CHARS = new Set('上大人可知礼三五七赖');
+const WILD_CHAR = '赖';
+const WILD_USABLE = new Set('三五七');
+
+// 顺子查找表: char -> [包含该字的顺子]
+const SEQ_BY_CHAR = {};
+for (const seq of ALL_SEQS) {
+  for (const ch of seq) {
+    if (!SEQ_BY_CHAR[ch]) SEQ_BY_CHAR[ch] = [];
+    SEQ_BY_CHAR[ch].push(seq);
+  }
+}
+
+// 生成所有口（半顺子）: C(3,2) from each sequence
+const ALL_KOU_LIST = [];
+(function buildKouList() {
+  const kouSet = new Set();
+  for (const seq of ALL_SEQS) {
+    for (let i = 0; i < 3; i++) {
+      for (let j = i + 1; j < 3; j++) {
+        const sorted = [seq[i], seq[j]].sort().join(',');
+        if (!kouSet.has(sorted)) {
+          kouSet.add(sorted);
+          ALL_KOU_LIST.push([seq[i], seq[j]]);
+        }
+      }
+    }
+  }
+})();
+
+// 从牌堆取出的字符串'ch:v'解析为makeCardData参数
+function parseDeckCard(deckStr) {
+  const idx = deckStr.indexOf(':');
+  if (idx >= 0) {
+    return makeCardData(deckStr.substring(0, idx), deckStr.substring(idx + 1));
+  }
+  return makeCardData(deckStr);
+}
+function makeCardData(ch, v) {
+  const isJ = JING_CHARS.has(ch);
+  const isW = ch === WILD_CHAR;
+  const variant = charVariant(ch);
+  // v参数指定花/皮, 未指定时按规则: 精牌默认flower, 非精默认skin
+  const val = (v !== undefined) ? v : (isJ ? 'flower' : 'skin');
+  return { ch, c: charColor(ch), v: val, variant, isJin: isJ, isWild: isW };
+}
+/* ═══ 游戏状态机 ═══ */
+const G = {
+  round: 0,
+  currentPlayer: 0,
+  phase: 'play',
+  deck: [],
+  deckCount: 0,
+  locked: false,
+  drawnCard: null,   // 摸到的牌暂存数据
+  drawnEl: null,     // 暂存牌的DOM元素
+  lastPlayedChar: null,
+  lastPlayedFrom: -1,
+  gameOver: false,
+};
+
+const NAMES = ['庄家(你)', '下家', '上家'];
+const SORT_ORDER = '上大人可知礼化三千孔乙己二四五六七八九子十土赖';
+
+let handCards = [];
+const opponentHands = { 1: [], 2: [] };
+const opponentMelds = { 1: [], 2: [] };
+const cardEls = [];
+
+/* ═══ 初始化 ═══ */
+function initGame() {
+  G.deck = generateDeck();
+  G.deckCount = G.deck.length;
+  G.round = 0;
+  G.currentPlayer = 0;
+  G.phase = 'play';
+  G.locked = false;
+  G.drawnCard = null;
+  G.drawnEl = null;
+  G.lastPlayedChar = null;
+  G.lastPlayedFrom = -1;
+  G.gameOver = false;
+
+  handCards = [];
+  opponentHands[1] = [];
+  opponentHands[2] = [];
+  opponentMelds[1] = [];
+  opponentMelds[2] = [];
+
+  for (let i = 0; i < 26; i++) handCards.push(parseDeckCard(G.deck.pop()));
+  for (let p = 1; p <= 2; p++)
+    for (let i = 0; i < 25; i++) { const s = G.deck.pop(); opponentHands[p].push(s.indexOf(':') >= 0 ? s.substring(0,s.indexOf(':')) : s); }
+
+  G.deckCount = G.deck.length;
+
+  handZone.querySelectorAll('.card').forEach(el => el.remove());
+  cardEls.length = 0;
+  document.getElementById('melds-bottom').innerHTML = '';
+  document.getElementById('lock-area').innerHTML = '';
+  document.getElementById('melds-left').innerHTML = '';
+  document.getElementById('melds-right').innerHTML = '';
+  discardPool.innerHTML = '';
+  document.getElementById('log-list').innerHTML = '';
+  document.getElementById('hand-right').innerHTML = '';
+  document.getElementById('hand-left').innerHTML = '';
+  actionsDealer.classList.remove('show');
+  document.getElementById('game-over').classList.remove('show');
+
+  handCards.sort((a, b) => SORT_ORDER.indexOf(a.ch) - SORT_ORDER.indexOf(b.ch));
+  layoutInitial();
+  buildSideHand('hand-right', 25);
+  buildSideHand('hand-left', 25);
+  updateUI();
+  updateOpponentCounts();
+  if (checkDealerZhaAndHu()) return;
+  setPhase('庄家出牌');
+  unlockHand();
+}
+
+function restartGame() {
+  initGame();
+  // 更新局数显示
+  var phaseEl = document.getElementById('phase-text');
+  if (phaseEl) {
+    var current = phaseEl.closest('.z-game-status');
+    if (current) {
+      var label = current.querySelector('.val');
+      if (label) label.textContent = '第' + (_gameStats.totalGames + 1) + '局';
+    }
+  }
+}
+
+function findInsertIndex(cardData) {
+const order = SORT_ORDER.indexOf(cardData.ch);
+  for (let i = 0; i < handCards.length; i++) {
+    if (SORT_ORDER.indexOf(handCards[i].ch) > order) return i;
+  }
+  return handCards.length;
+}
+
+function rearrangeHand() {
+  const zW = handZone.offsetWidth, zH = handZone.offsetHeight;
+  const perRow = Math.min(cardEls.length, Math.floor((zW - 10) / STEP_X));
+  if (perRow <= 0) return;
+  const rows = Math.ceil(cardEls.length / perRow);
+  const startY = zH - rows * (CARD_H + 7) - 8;
+  const startX = (zW - perRow * STEP_X + (STEP_X - CARD_W)) / 2;
+
+  // ★ 扎牌已移至锁牌区，手牌区只有自由牌，直接排列
+  cardEls.forEach((el, i) => {
+    el.style.left = (startX + (i % perRow) * STEP_X) + 'px';
+    el.style.top = (startY + Math.floor(i / perRow) * (CARD_H + 6)) + 'px';
+  });
+}
+
+function layoutInitial() {
+  const zW = handZone.offsetWidth, zH = handZone.offsetHeight;
+  const perRow = Math.min(handCards.length, Math.floor((zW - 10) / STEP_X));
+  const rows = Math.ceil(handCards.length / perRow);
+  const startY = zH - rows * (CARD_H + 7) - 8;
+  const startX = (zW - perRow * STEP_X + (STEP_X - CARD_W)) / 2;
+  handCards.forEach((d, i) => {
+    var el = createCardEl(d, startX + (i % perRow) * STEP_X, startY + Math.floor(i / perRow) * (CARD_H + 6));
+    // 扎牌已移至锁牌区，layoutInitial只需排列手牌区的自由牌
+  });
+  // 初始布局后应用扎牌叠放排列
+  rearrangeHand();
+}
+
+/* ═══ 创建牌面 ═══ */
+function createCardEl(data, x, y) {
+  const el = document.createElement('div');
+  const variant = data.variant || '';
+  const vf = data.v === 'flower' ? ' v-flower' : '';
+  el.className = 'card in-hand' + (variant ? ' ' + variant : '') + vf + (G.locked ? ' locked' : '');
+  el.innerHTML = '<span class="card-char ' + data.c + '">' + data.ch + '</span>';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.dataset.ch = data.ch;
+  el.dataset.color = data.c;
+  el.dataset.v = data.v || '';
+  el.dataset.variant = data.variant || '';
+  el.addEventListener('mousedown', onDown);
+  el.addEventListener('touchstart', onTouchDown, { passive: false });
+  el.addEventListener('dblclick', onDblClick);
+  cardEls.push(el);
+  handZone.appendChild(el);
+  return el;
+}
+
+/* ═══ 锁定/解锁 ═══ */
+function lockHand() {
+  G.locked = true;
+  handZone.classList.add('locked');
+  cardEls.forEach(el => el.classList.add('locked'));
+  if (G.drawnEl) G.drawnEl.classList.add('locked');
+}
+// 旁家操作时: 仅锁定出牌/双击出牌等游戏操作，但允许手牌拖拽整理
+function lockHandForOpponent() {
+  G.locked = true;  // 阻止双击出牌、碰牌等游戏操作
+  handZone.classList.add('btns-locked');
+  // 不给手牌添加locked类，保持可拖拽
+}
+
+function unlockHand() {
+  G.locked = false;
+  handZone.classList.remove('locked');
+  handZone.classList.remove('btns-locked');
+  cardEls.forEach(el => el.classList.remove('locked'));
+  if (G.drawnEl) G.drawnEl.classList.remove('locked');
+}
+
+/* ═══ 拖动 ═══ */
+let drag = null, dragMoved = false, dragStartPos = null;
+function onDown(e) {
+  e.preventDefault(); dragStartPos = {x:e.clientX,y:e.clientY}; beginDrag(e.currentTarget, e.clientX, e.clientY);
+}
+function onTouchDown(e) {
+  e.preventDefault(); const t=e.touches[0]; dragStartPos = {x:t.clientX,y:t.clientY}; beginDrag(e.currentTarget, t.clientX, t.clientY);
+}
+function beginDrag(el, cx, cy) {
+  const r = handZone.getBoundingClientRect();
+  drag = { el, ox: cx-r.left-parseFloat(el.style.left), oy: cy-r.top-parseFloat(el.style.top) };
+  dragMoved = false;
+  el.classList.add('dragging');
+}
+function onMove(cx, cy) {
+  if (!drag) return;
+  const r = handZone.getBoundingClientRect();
+  let x = cx-r.left-drag.ox, y = cy-r.top-drag.oy;
+  const m = CARD_W*0.6;
+  x = Math.max(-m, Math.min(handZone.offsetWidth-CARD_W+m, x));
+  y = Math.max(-m, Math.min(handZone.offsetHeight-CARD_H+m, y));
+  drag.el.style.left = x+'px'; drag.el.style.top = y+'px';
+  if (Math.abs(cx-dragStartPos.x)+Math.abs(cy-dragStartPos.y)>5) dragMoved = true;
+  if (dragMoved) highlightNearby(drag.el);
+}
+document.addEventListener('mousemove', e => onMove(e.clientX, e.clientY));
+document.addEventListener('touchmove', e => { if(drag){e.preventDefault();onMove(e.touches[0].clientX,e.touches[0].clientY);} }, {passive:false});
+function endDrag() {
+  if (!drag) return;
+  drag.el.classList.remove('dragging');
+  if (dragMoved) snapToGroup(drag.el);
+  clearHighlights(); drag = null;
+}
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+function highlightNearby(dragEl) {
+  const dx=parseFloat(dragEl.style.left), dy=parseFloat(dragEl.style.top), ch=dragEl.dataset.ch;
+  cardEls.forEach(el => {
+    if(el===dragEl){el.classList.remove('grouped');return;}
+    const dist=Math.hypot(dx-parseFloat(el.style.left),dy-parseFloat(el.style.top));
+    el.classList.toggle('grouped',dist<CARD_W*1.8&&el.dataset.ch===ch);
+  });
+}
+function clearHighlights() { cardEls.forEach(el => el.classList.remove('grouped')); }
+function snapToGroup(dragEl) {
+  const dx=parseFloat(dragEl.style.left),dy=parseFloat(dragEl.style.top),ch=dragEl.dataset.ch;
+  let best=null,bestDist=Infinity;
+  cardEls.forEach(el => {
+    if(el===dragEl||el.dataset.ch!==ch)return;
+    const dist=Math.hypot(dx-parseFloat(el.style.left),dy-parseFloat(el.style.top));
+    if(dist<bestDist){bestDist=dist;best=el;}
+  });
+  if(best&&bestDist<CARD_W*2.5){
+    const tx=parseFloat(best.style.left),ty=parseFloat(best.style.top);
+    dragEl.style.left=(dx>tx?tx+STEP_X:Math.max(0,tx-STEP_X))+'px';
+    dragEl.style.top=(dx>tx?ty+2:Math.max(0,ty-2))+'px';
+    dragEl.style.zIndex='2';
+  }
+}
+
+/* ═══ 双击出牌 ═══ */
+function onDblClick(e) {
+  if (dragMoved || G.locked || G.gameOver) return;
+  playCard(e.currentTarget);
+}
+
+function playCard(el) {
+  lockHand();
+
+  const srcRect = el.getBoundingClientRect();
+  const char = el.dataset.ch, color = el.dataset.color, variant = el.dataset.variant;
+
+  // 判断是否打出暂存牌
+  const isDrawn = (el === G.drawnEl);
+  if (isDrawn) { G.drawnCard = null; G.drawnEl = null; }
+
+  // 从cardEls和handCards中移除（暂存牌不在其中，跳过）
+  const cardIdx = cardEls.indexOf(el);
+  if (cardIdx !== -1) {
+    cardEls.splice(cardIdx, 1);
+    if (el.parentNode === handZone) handZone.removeChild(el);
+  } else if (!isDrawn) {
+    // 不在cardEls中也不是暂存牌，异常情况
+    return;
+  }
+  // 暂存牌：从DOM移除即可，不在cardEls/handCards中
+
+  if (!isDrawn) {
+    const hcIdx = handCards.findIndex(c => c.ch === char);
+    if (hcIdx !== -1) handCards.splice(hcIdx, 1);
+  }
+
+  G.round++;
+  updateUI();
+
+  // 飞行动画
+  const flyEl = document.createElement('div');
+  const v = variant || '';
+  const fv = el.dataset.v === 'flower' ? ' v-flower' : '';
+  flyEl.className = 'card flying' + (v ? ' ' + v : '') + fv;
+  flyEl.innerHTML = '<span class="card-char ' + color + '">' + char + '</span>';
+  flyEl.style.left = srcRect.left+'px'; flyEl.style.top = srcRect.top+'px';
+  flyEl.style.width = srcRect.width+'px'; flyEl.style.height = srcRect.height+'px';
+  document.body.appendChild(flyEl);
+
+  const tgtRect = discardPool.getBoundingClientRect();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    flyEl.style.left = (tgtRect.left+tgtRect.width/2-15)+'px';
+    flyEl.style.top = (tgtRect.top+tgtRect.height/2-21)+'px';
+    flyEl.style.width = '30px'; flyEl.style.height = '42px'; flyEl.style.opacity = '0.85';
+  }));
+  flyEl.addEventListener('transitionend', () => {
+    flyEl.remove();
+    addDiscardCard(char, color, variant, el.dataset.v === 'flower');
+    G.lastPlayedChar = char;
+    G.lastPlayedFrom = 0;
+    console.log('[流程] 庄家出牌完成, char=' + char);
+
+    // 暂存牌已经在此函数开头被清除(isDrawn=true时)，无需合入
+    // 但如果是打出手牌(isDrawn=false)，暂存牌应该还在，需要合入
+    if (!isDrawn && G.drawnCard && G.drawnEl && G.drawnEl.parentNode) {
+      const dData = G.drawnCard;
+      const dEl = G.drawnEl;
+      console.log('[流程] 暂存牌合入手牌, char=' + dData.ch);
+      G.drawnCard = null;
+      G.drawnEl = null;
+      // 按字面顺序插入
+      const insIdx = findInsertIndex(dData);
+      handCards.splice(insIdx, 0, dData);
+      // 更新样式：清除暂存时的inline定位样式，恢复为普通手牌
+      dEl.style.position = '';
+      dEl.style.zIndex = '';
+      dEl.style.transition = '';
+      dEl.style.cursor = 'grab';
+      dEl.classList.remove('just-drawn');
+      dEl.classList.add('in-hand');
+      dEl.classList.remove('locked');
+      // 插入到cardEls正确位置
+      cardEls.splice(insIdx, 0, dEl);
+      // 调整DOM顺序：insertBefore在同一父节点内移动会自动移除旧位置，无需removeChild
+      const handChildren = [...handZone.children].filter(c => cardEls.includes(c));
+      const refChild = insIdx < handChildren.length ? handChildren[insIdx] : null;
+      if (refChild) {
+        handZone.insertBefore(dEl, refChild);
+      } else {
+        const lastHand = handChildren.length > 0 ? handChildren[handChildren.length - 1] : null;
+        if (lastHand) {
+          handZone.insertBefore(dEl, lastHand.nextSibling);
+        } else {
+          handZone.appendChild(dEl);
+        }
+      }
+      // 重新排列
+      rearrangeHand();
+    }
+
+    // 出牌后检测听牌
+    try {
+      const ting = detectTing();
+      if (ting && ting.tingChars && ting.tingChars.length > 0) {
+        showTingPanel(ting);
+      } else {
+        hideTingPanel();
+      }
+    } catch(e) { console.warn('[听牌] 出牌后听牌检测异常:', e); }
+
+    checkOpponentResponse();
+  }, {once:true});
+
+  // 暂存牌出牌后从DOM移除
+  if (isDrawn && el.parentNode) {
+    el.remove();
+  }
+
+  addLog(NAMES[0], '出', char);
+  setPhase('等待响应');
+}
+
+function addDiscardCard(char, color, variant, isFlower) {
+  if (char && char.indexOf(':') >= 0) char = char.substring(0, char.indexOf(':'));
+  const prev = discardPool.querySelector('.just-played');
+  if (prev) prev.classList.remove('just-played');
+  const el = document.createElement('div');
+  const v = variant || '';
+  const fv = isFlower ? ' v-flower' : '';
+  el.className = 'card just-played' + (v ? ' ' + v : '') + fv;
+  el.innerHTML = '<span class="card-char ' + color + '">' + char + '</span>';
+  el.style.position = 'relative';
+  discardPool.appendChild(el);
+}
+
+/* ═══ 旁家响应检测（庄家出牌后） ═══ */
+function checkOpponentResponse() {
+  console.log("[流程] checkOpponentResponse, char=" + G.lastPlayedChar + ", from=" + G.lastPlayedFrom);
+  // 旁家操作期间，允许玩家拖拽手牌整理（但不能出牌）
+  lockHandForOpponent();
+  const ch = G.lastPlayedChar;
+  const from = G.lastPlayedFrom;
+
+  for (const pi of [1, 2]) {
+    const count = opponentHands[pi].filter(c => c === ch).length;
+    // 检查旁家是否有扎牌可升级为泛牌（扎牌+旁家出同字→泛牌）
+    var hasZha = false;
+    for (var mi = 0; mi < opponentMelds[pi].length; mi++) {
+      if (opponentMelds[pi][mi].type === 'zha' && opponentMelds[pi][mi].cards[0] === ch) {
+        hasZha = true; break;
+      }
+    }
+    if (count >= 2) {
+      if (hasZha) {
+        // 扎牌+旁家出同字→泛牌（取旁家手中2张+弃牌1张+扎牌区第4张=第5张）
+        addLog(NAMES[pi], '泛', ch);
+        opponentFan(pi, ch);
+        return;
+      }
+      addLog(NAMES[pi], '碰', ch);
+      setPhase(NAMES[pi] + '碰牌中');
+      setTimeout(() => opponentPen(pi, ch), 800);
+      return;
+    }
+  }
+
+  addLog('', '无人响应', '');
+  console.log('[流程] 无人响应, 将passToNext(' + from + ')');
+  setTimeout(() => passToNext(from), 600);
+}
+
+/* ═══ 旁家出牌后响应检测 ═══ */
+function checkResponseAfterOpponent(fromIdx) {
+  console.log("[流程] checkResponseAfterOpponent, from=" + fromIdx + ", char=" + G.lastPlayedChar);
+  const ch = G.lastPlayedChar;
+
+  // 1. 检查庄家是否可碰或可招
+  const dealerCount = handCards.filter(c => c.ch === ch).length;
+  // 也检查暂存牌
+  const drawnMatch = G.drawnCard && G.drawnCard.ch === ch ? 1 : 0;
+  const totalCount = dealerCount + drawnMatch;
+  var canZhao = totalCount >= 3;
+  var canPen = totalCount >= 2;
+
+  // ★ 限两对：胡牌前最多两次碰牌机会
+  var penCount = G.dealerMelds ? G.dealerMelds.filter(m => m.type === 'pen').length : 0;
+  if (canPen && penCount >= 2) canPen = false;
+
+  // ★ 检查过牌记录
+  if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
+  if (canZhao && G._skippedOps['zhao_' + ch]) canZhao = false;
+
+  if (canZhao || canPen) {
+    setPhase(canZhao ? '等待你碰/招牌' : '等待你碰牌');
+    actionsDealer.classList.add('show');
+    document.getElementById('btn-zhao').style.display = canZhao ? '' : 'none';
+    document.getElementById('btn-pen').style.display = canPen ? '' : 'none';
+    document.getElementById('btn-pass').style.display = '';
+    document.getElementById('btn-hu').style.display = 'none';
+    document.getElementById('btn-zha').style.display = 'none';
+    document.getElementById('btn-fan').style.display = 'none';
+    document.getElementById('btn-chuan').style.display = 'none';
+    return;
+  }
+
+  // 2. 检查另一个旁家
+  const otherPlayers = [1, 2].filter(p => p !== fromIdx);
+  for (const pi of otherPlayers) {
+    const count = opponentHands[pi].filter(c => c === ch).length;
+    var hasZha = false;
+    for (var mi = 0; mi < opponentMelds[pi].length; mi++) {
+      if (opponentMelds[pi][mi].type === 'zha' && opponentMelds[pi][mi].cards[0] === ch) {
+        hasZha = true; break;
+      }
+    }
+    if (count >= 2) {
+      if (hasZha) {
+        addLog(NAMES[pi], '泛', ch);
+        opponentFan(pi, ch);
+        return;
+      }
+      addLog(NAMES[pi], '碰', ch);
+      setPhase(NAMES[pi] + '碰牌中');
+      setTimeout(() => opponentPen(pi, ch), 800);
+      return;
+    }
+  }
+
+  // 3. 都不碰 → 流转
+  setTimeout(() => passToNext(fromIdx), 400);
+}
+
+/* ═══ 旁家碰牌 ═══ */
+function opponentPen(playerIdx, char) {
+  console.log("[流程] opponentPen, player=" + playerIdx + ", char=" + char);
+  const hand = opponentHands[playerIdx];
+  let removed = 0;
+  for (let i = hand.length - 1; i >= 0 && removed < 2; i--) {
+    if (hand[i] === char) { hand.splice(i, 1); removed++; }
+  }
+  const lastDiscard = discardPool.lastElementChild;
+  if (lastDiscard) lastDiscard.remove();
+
+  opponentMelds[playerIdx].push({ type: 'pen', cards: [char, char, char] });
+  updateOpponentCounts();
+
+  // 碰牌不摸牌
+  addLog(NAMES[playerIdx], '碰牌完成', '');
+
+  // 碰牌者获得出牌权，自动出一张
+  setTimeout(() => {
+    if (hand.length > 0) {
+      const playIdx = aiPickDiscard(hand);
+      const played = hand.splice(playIdx, 1)[0];
+      addLog(NAMES[playerIdx], '出', played);
+      setPhase(NAMES[playerIdx] + '出牌中');
+      G.lastPlayedChar = played;
+      G.lastPlayedFrom = playerIdx;
+      addDiscardCard(played, charColor(played), charVariant(played));
+      updateOpponentCounts();
+
+      setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+    }
+  }, 800);
+}
+
+
+
+/* ═══ 旁家招牌（明杠） ═══ */
+function opponentZhao(playerIdx, char) {
+  console.log("[流程] opponentZhao, player=" + playerIdx + ", char=" + char);
+  const hand = opponentHands[playerIdx];
+
+  // 取出手中全部3张该字
+  let removed = 0;
+  for (let i = hand.length - 1; i >= 0 && removed < 3; i--) {
+    if (hand[i] === char) { hand.splice(i, 1); removed++; }
+  }
+
+  const lastDiscard = discardPool.lastElementChild;
+  if (lastDiscard) lastDiscard.remove();
+
+  opponentMelds[playerIdx].push({ type: 'zhao', cards: [char, char, char, char] });
+  addOpponentMeld(playerIdx, 'zhao', char);
+  updateOpponentCounts();
+
+  addLog(NAMES[playerIdx], '招', char);
+
+  // 招牌后摸牌顶
+  if (G.deckCount > 0) {
+    var _ds0 = G.deck.pop(); hand.push(_ds0.indexOf(':') >= 0 ? _ds0.substring(0, _ds0.indexOf(':')) : _ds0);
+    G.deckCount--;
+    addLog(NAMES[playerIdx], '招后摸牌', '');
+  }
+
+  // 招牌者获得出牌权
+  setTimeout(function() {
+    if (hand.length > 0) {
+      var playIdx = aiPickDiscard(hand);
+      var played = hand.splice(playIdx, 1)[0];
+      addLog(NAMES[playerIdx], '出', played);
+      setPhase(NAMES[playerIdx] + '出牌中');
+      G.lastPlayedChar = played;
+      G.lastPlayedFrom = playerIdx;
+      addDiscardCard(played, charColor(played), charVariant(played));
+      updateOpponentCounts();
+      setTimeout(function() { checkResponseAfterOpponent(playerIdx); }, 500);
+    }
+  }, 1200);
+}
+
+/* ═══ 旁家穿牌（扎牌自摸同字升级） ═══ */
+function opponentChuan(playerIdx, char) {
+  console.log("[流程] opponentChuan, player=" + playerIdx + ", char=" + char);
+  const hand = opponentHands[playerIdx];
+
+  // 取出手中该字的牌
+  for (let i = hand.length - 1; i >= 0; i--) {
+    if (hand[i] === char) { hand.splice(i, 1); break; }
+  }
+
+  // 升级扎牌为穿牌
+  for (let mi = opponentMelds[playerIdx].length - 1; mi >= 0; mi--) {
+    if (opponentMelds[playerIdx][mi].type === 'zha' && opponentMelds[playerIdx][mi].cards[0] === char) {
+      opponentMelds[playerIdx][mi] = { type: 'chuan', cards: [char,char,char,char,char] };
+      break;
+    }
+  }
+
+  // 移除旧的扎牌DOM组
+  var oppCId2 = playerIdx === 1 ? 'melds-left' : 'melds-right';
+  var oppC2 = document.getElementById(oppCId2);
+  if (oppC2) {
+    var oldG2 = oppC2.querySelectorAll('.meld-group');
+    for (var gi2 = 0; gi2 < oldG2.length; gi2++) {
+      var gL2 = oldG2[gi2].querySelector('.meld-label');
+      if (gL2 && gL2.textContent === '扎') {
+        var gC2 = oldG2[gi2].querySelectorAll('.card-char');
+        if (gC2.length > 0 && gC2[0].textContent === char) {
+          oldG2[gi2].remove();
+          break;
+        }
+      }
+    }
+  }
+  addOpponentMeld(playerIdx, 'chuan', char);
+  updateOpponentCounts();
+  addLog(NAMES[playerIdx], '穿', char);
+
+  // 穿牌后摸牌底
+  if (G.deckCount > 0) {
+    var _ds1 = G.deck.shift(); hand.push(_ds1.indexOf(':') >= 0 ? _ds1.substring(0, _ds1.indexOf(':')) : _ds1);
+    G.deckCount--;
+    addLog(NAMES[playerIdx], '穿后摸牌', '');
+  }
+
+  // 穿牌者获得出牌权
+  setTimeout(function() {
+    if (hand.length > 0) {
+      var playIdx = aiPickDiscard(hand);
+      var played = hand.splice(playIdx, 1)[0];
+      addLog(NAMES[playerIdx], '出', played);
+      setPhase(NAMES[playerIdx] + '出牌中');
+      G.lastPlayedChar = played;
+      G.lastPlayedFrom = playerIdx;
+      addDiscardCard(played, charColor(played), charVariant(played));
+      updateOpponentCounts();
+      setTimeout(function() { checkResponseAfterOpponent(playerIdx); }, 500);
+    }
+  }, 1200);
+}
+
+/* ═══ 旁家泛牌（扎牌+旁家出同字，或招牌自摸同字） ═══ */
+function opponentFan(playerIdx, char) {
+  console.log("[流程] opponentFan, player=" + playerIdx + ", char=" + char);
+  const hand = opponentHands[playerIdx];
+
+  // 取出手中2张该字
+  let removed = 0;
+  for (let i = hand.length - 1; i >= 0 && removed < 2; i--) {
+    if (hand[i] === char) { hand.splice(i, 1); removed++; }
+  }
+
+  // 取弃牌池中的牌
+  const lastDiscard = discardPool.lastElementChild;
+  if (lastDiscard) lastDiscard.remove();
+
+  // 升级扎牌为泛牌
+  for (let mi = opponentMelds[playerIdx].length - 1; mi >= 0; mi--) {
+    if (opponentMelds[playerIdx][mi].type === 'zha' && opponentMelds[playerIdx][mi].cards[0] === char) {
+      opponentMelds[playerIdx][mi] = { type: 'fan', cards: [char,char,char,char,char] };
+      break;
+    }
+  }
+
+  // 移除旧的扎牌/招DOM组
+  var oppContainerId = playerIdx === 1 ? 'melds-left' : 'melds-right';
+  var oppContainer = document.getElementById(oppContainerId);
+  if (oppContainer) {
+    var oldOppGroups = oppContainer.querySelectorAll('.meld-group');
+    for (var gi = 0; gi < oldOppGroups.length; gi++) {
+      var gLabel = oldOppGroups[gi].querySelector('.meld-label');
+      if (gLabel && (gLabel.textContent === '扎' || gLabel.textContent === '招')) {
+        var gCards = oldOppGroups[gi].querySelectorAll('.card-char');
+        if (gCards.length > 0 && gCards[0].textContent === char) {
+          oldOppGroups[gi].remove();
+          break;
+        }
+      }
+    }
+  }
+  addOpponentMeld(playerIdx, 'fan', char);
+  updateOpponentCounts();
+  addLog(NAMES[playerIdx], '泛', char);
+
+  // 泛牌后摸牌顶
+  if (G.deckCount > 0) {
+    var _ds2 = G.deck.pop(); hand.push(_ds2.indexOf(':') >= 0 ? _ds2.substring(0, _ds2.indexOf(':')) : _ds2);
+    G.deckCount--;
+    addLog(NAMES[playerIdx], '泛后摸牌', '');
+  }
+
+  // 泛牌者获得出牌权
+  setTimeout(function() {
+    if (hand.length > 0) {
+      var playIdx = aiPickDiscard(hand);
+      var played = hand.splice(playIdx, 1)[0];
+      addLog(NAMES[playerIdx], '出', played);
+      setPhase(NAMES[playerIdx] + '出牌中');
+      G.lastPlayedChar = played;
+      G.lastPlayedFrom = playerIdx;
+      addDiscardCard(played, charColor(played), charVariant(played));
+      updateOpponentCounts();
+      setTimeout(function() { checkResponseAfterOpponent(playerIdx); }, 500);
+    }
+  }, 1200);
+}
+
+/* ═══ 庄家碰牌 ═══ */
+function dealerPen() {
+  console.log("[流程] dealerPen");
+  actionsDealer.classList.remove('show');
+  document.getElementById('btn-zhao').style.display = 'none';
+  document.getElementById('btn-zha').style.display = 'none';
+  const ch = G.lastPlayedChar;
+
+  // ★ 先收集手牌中碰牌的card数据（在移除之前）
+  var penCards = [];
+  for (var ci = handCards.length - 1; ci >= 0 && penCards.length < 2; ci--) {
+    if (handCards[ci].ch === ch) penCards.unshift(handCards[ci]);
+  }
+  if (penCards.length < 2 && G.drawnCard && G.drawnCard.ch === ch) {
+    penCards.push(G.drawnCard);
+  }
+
+  // 从手牌+暂存牌中取出2张该字（DOM和数组同步移除）
+  let removed = 0;
+  for (let i = handCards.length - 1; i >= 0 && removed < 2; i--) {
+    if (handCards[i].ch === ch) {
+      handCards.splice(i, 1);
+      const el = cardEls.splice(i, 1)[0];
+      if (el && el.parentNode === handZone) handZone.removeChild(el);
+      removed++;
+    }
+  }
+  if (removed < 2 && G.drawnCard && G.drawnCard.ch === ch) {
+    handCards.push(G.drawnCard);
+    const dEl = G.drawnEl;
+    if (dEl && dEl.parentNode === handZone) { handZone.removeChild(dEl); }
+    G.drawnCard = null; G.drawnEl = null;
+    rearrangeHand();
+    const extraIdx = handCards.findIndex(c => c.ch === ch);
+    if (extraIdx !== -1) {
+      handCards.splice(extraIdx, 1);
+      const el2 = cardEls.splice(extraIdx, 1)[0];
+      if (el2 && el2.parentNode === handZone) handZone.removeChild(el2);
+      removed++;
+    }
+  }
+
+  // 取弃牌池中的第3张（旁家打出的牌）
+  const lastDiscard = discardPool.lastElementChild;
+  if (lastDiscard) {
+    var discV = lastDiscard.dataset.v || '';
+    var discVariant = lastDiscard.dataset.variant || '';
+    var discCard = makeCardData(ch, discV || undefined);
+    if (discVariant) discCard.variant = discVariant;
+    penCards.push(discCard);
+    lastDiscard.remove();
+  }
+
+  addDealerMeld('pen', ch, null, penCards);
+  if (!G.dealerMelds) G.dealerMelds = [];
+  G.dealerMelds.push({ type: 'pen', char: ch, count: 3, cards: penCards });
+  addLog(NAMES[0], '碰', ch);
+
+  setPhase('庄家出牌');
+  unlockHand();
+  updateUI();
+}
+
+
+
+/* ═══ 庄家招牌（明杠） ═══ */
+function dealerZhao() {
+  console.log("[流程] dealerZhao");
+  actionsDealer.classList.remove('show');
+  document.getElementById('btn-hu').style.display = 'none';
+  const ch = G.lastPlayedChar;
+
+  // ★ 先收集实际card数据(含花/皮)，再从handCards/cardEls中移除
+  var zhaoCards = [];
+  var zhaoRm = 0;
+  for (var zi = handCards.length - 1; zi >= 0 && zhaoRm < 3; zi--) {
+    if (handCards[zi].ch === ch) { zhaoCards.push(handCards[zi]); zhaoRm++; }
+  }
+  if (zhaoRm < 3 && G.drawnCard && G.drawnCard.ch === ch) {
+    zhaoCards.push(G.drawnCard);
+  }
+
+  // 从手牌+暂存牌中取出全部3张该字（DOM和数组同步移除）
+  let removed = 0;
+  for (let i = handCards.length - 1; i >= 0 && removed < 3; i--) {
+    if (handCards[i].ch === ch) {
+      handCards.splice(i, 1);
+      const el = cardEls.splice(i, 1)[0];
+      if (el && el.parentNode === handZone) handZone.removeChild(el);
+      removed++;
+    }
+  }
+  if (removed < 3 && G.drawnCard && G.drawnCard.ch === ch) {
+    const dEl = G.drawnEl;
+    if (dEl && dEl.parentNode === handZone) handZone.removeChild(dEl);
+    G.drawnCard = null; G.drawnEl = null;
+  }
+
+  // 取弃牌池中的第4张
+  const lastDiscard = discardPool.lastElementChild;
+  if (lastDiscard) {
+    // 构建第4张牌的card数据（从DOM属性中获取花/皮信息）
+    var discV = lastDiscard.dataset.v || '';
+    var discVariant = lastDiscard.dataset.variant || '';
+    var discCard = makeCardData(ch, discV || undefined);
+    if (discVariant) discCard.variant = discVariant;
+    zhaoCards.push(discCard);
+    lastDiscard.remove();
+  }
+
+  addDealerMeld('zhao', ch, null, zhaoCards);
+  if (!G.dealerMelds) G.dealerMelds = [];
+  G.dealerMelds.push({ type: 'zhao', char: ch, count: 4, cards: zhaoCards });
+  addLog(NAMES[0], '招', ch);
+
+  // 招牌后: 检查泛牌（摸到同字第5张→泛牌）+ 摸牌
+  // 招牌摸牌顶（余牌池顶部），穿牌从牌底摸
+  if (G.deckCount > 0) {
+    var drawnCh = G.deck.pop();
+    G.deckCount--;
+    var data = parseDeckCard(drawnCh);
+    addLog(NAMES[0], '招后摸牌', drawnCh.indexOf(':')>=0 ? drawnCh.substring(0,drawnCh.indexOf(':')) : drawnCh);
+    setPhase('庄家摸牌中');
+
+    // 摸到的牌放入暂存区，检测泛牌和已有扎牌穿牌
+    animateDealerDraw(data, function() {
+      // 检测泛牌（招牌+同字第5张）→ 显示按钮让玩家选择
+      // 不再自动泛牌，走checkDealerZhaAndHu按钮流程
+      if (checkDealerZhaAndHu()) return;
+
+      setPhase('庄家出牌');
+      G.phase = 'play';
+      unlockHand();
+      updateUI();
+    });
+  } else {
+    setPhase('庄家出牌');
+    unlockHand();
+    updateUI();
+  }
+}
+
+/* ═══ 庄家泛牌 ═══ */
+function dealerFan() {  actionsDealer.classList.remove('show');
+  
+  // 找到与摸到牌同字的招牌
+  var fanChar = null;
+  if (G.drawnCard && G.dealerMelds) {
+    for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+      var fm = G.dealerMelds[mi];
+      if (fm.type === 'zhao' && fm.char === G.drawnCard.ch) {
+        fanChar = G.drawnCard.ch;
+        break;
+      }
+    }
+  }
+  if (!fanChar) {
+    console.log('[错误] dealerFan: 未找到可泛的招牌');
+    return;
+  }
+
+  // 从暂存区取出摸到的牌
+  if (G.drawnEl && G.drawnEl.parentNode === handZone) G.drawnEl.remove();
+  var fanCard = G.drawnCard;
+  G.drawnCard = null; G.drawnEl = null;
+
+  // 将招牌升级为泛牌：更新dealerMelds记录
+  for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+    var fm = G.dealerMelds[mi];
+    if (fm.type === 'zhao' && fm.char === fanChar) {
+      fm.type = 'fan';
+      fm.count = 5;
+      fm.cards.push(fanCard);
+      break;
+    }
+  }
+
+    // 获取更新后的cards
+  var fanCards = null;
+  for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+    var fm = G.dealerMelds[mi];
+    if (fm.type === 'fan' && fm.char === fanChar) { fanCards = fm.cards; break; }
+  }
+  // 移除旧的招牌DOM组（泛牌升级替换）
+  var meldsBottom = document.getElementById('melds-bottom');
+  var oldGroups = meldsBottom.querySelectorAll('.meld-group');
+  for (var gi = 0; gi < oldGroups.length; gi++) {
+    var gLabel = oldGroups[gi].querySelector('.meld-label');
+    if (gLabel && gLabel.textContent === '招') {
+      var gCards = oldGroups[gi].querySelectorAll('.card-char');
+      if (gCards.length > 0 && gCards[0].textContent === fanChar) {
+        oldGroups[gi].remove();
+        break;
+      }
+    }
+  }
+  addDealerMeld('fan', fanChar, fanChar, fanCards);
+  addLog(NAMES[0], '泛', fanChar);
+  addLog(NAMES[0], '泛', fanChar);
+
+  // 泛牌后需要补牌（摸牌顶）
+  if (G.deckCount > 0) {
+    var drawnCh = G.deck.pop();
+    G.deckCount--;
+    var data = parseDeckCard(drawnCh);
+    addLog(NAMES[0], '泛后摸牌', drawnCh.indexOf(':')>=0 ? drawnCh.substring(0,drawnCh.indexOf(':')) : drawnCh);
+    setPhase('庄家摸牌中');
+    animateDealerDraw(data, function() {
+      // 补摸后再次检测自摸/扎牌/泛牌
+      if (checkDealerZhaAndHu()) return;
+      // 检测已有扎牌穿牌（摸到的牌与锁牌区扎牌同字→穿牌升级）
+      var zhaChuanChar = null;
+      if (G.drawnCard && G.dealerMelds) {
+        for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+          var zm = G.dealerMelds[mi];
+          if (zm.type === 'zha' && zm.inHand && zm.char === G.drawnCard.ch) {
+            zhaChuanChar = G.drawnCard.ch;
+            break;
+          }
+        }
+      }
+      if (zhaChuanChar) {
+        // 自动穿牌升级
+        console.log('[流程] 招后摸牌触发穿牌: ' + zhaChuanChar);
+        dealerCheckChuan(zhaChuanChar, G.dealerMelds.find(m => m.type === 'zha' && m.inHand && m.char === zhaChuanChar)?.isWildZha);
+        return;
+      }
+
+      setPhase('庄家出牌');
+      G.phase = 'play';
+      unlockHand();
+      updateUI();
+    });
+  } else {
+    setPhase('庄家出牌');
+    unlockHand();
+    updateUI();
+  }
+}
+
+/* ═══ 庄家扎牌+自摸检测（通用） ═══ */
+// 在摸牌后和初始化时调用，检测庄家是否可以扎牌或自摸
+function checkDealerZhaAndHu() {
+  var huResult = checkDealerSelfHu();
+  var allChars = handCards.map(c => c.ch);
+  if (G.drawnCard) allChars.push(G.drawnCard.ch);
+  var counts = {};
+  for (var c of allChars) counts[c] = (counts[c] || 0) + 1;
+  // 统计赖子数量（仅手牌中的赖子，不含已扎锁定的）
+  var wildCount = counts[WILD_CHAR] || 0;
+  // 收集已扎过的字，不重复检测
+  var alreadyZha = {};
+  if (G.dealerMelds) {
+    for (var m of G.dealerMelds) {
+      if (m.type === 'zha' && m.inHand) alreadyZha[m.char] = true;
+    }
+  }
+  // ★ 收集所有可扎字符（物理4张 + 赖子精扎3三五七+1赖子 + 赖子精扎2三五七+2赖子）
+  var zhaChars = [];
+  for (var c in counts) {
+    if (alreadyZha[c]) continue;
+    if (counts[c] >= 4) {
+      zhaChars.push(c);
+    } else if (WILD_USABLE.has(c) && wildCount > 0) {
+      var need = 4 - counts[c]; // 需要的赖子数量
+      if (need >= 1 && need <= wildCount) {
+        zhaChars.push(c);
+      }
+    }
+  }
+  G._zhaChars = zhaChars;
+  G._zhaChar = zhaChars.length > 0 ? zhaChars[0] : null;
+
+  // ★ 检测泛牌：摸到的牌与已有招牌同字 → 泛牌
+  var fanChar = null;
+  if (G.drawnCard && G.dealerMelds) {
+    for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+      var fm = G.dealerMelds[mi];
+      if (fm.type === 'zhao' && fm.char === G.drawnCard.ch) {
+        fanChar = G.drawnCard.ch;
+        break;
+      }
+    }
+  }
+
+  // ★ 检测穿牌：摸到的牌与已有inHand扎牌同字 → 穿牌
+  var chuanChar = null;
+  var chuanIsWildZha = false;
+  if (G.drawnCard && G.dealerMelds) {
+    for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+      var cm = G.dealerMelds[mi];
+      if (cm.type === 'zha' && cm.inHand && cm.char === G.drawnCard.ch) {
+        chuanChar = G.drawnCard.ch;
+        chuanIsWildZha = !!cm.isWildZha;
+        break;
+      }
+    }
+  }
+
+  // ★ 检测泛牌（扎牌+旁家出同字）也在 _pendingFan 中处理，这里不再重复
+
+  if (huResult || zhaChars.length > 0 || fanChar || chuanChar) {
+    if (huResult) {
+      console.log('[流程] 庄家可自摸! ' + huResult.totalHu + '胡');
+      G._pendingWin = { ...huResult, winType: '自摸' };
+    }
+    if (zhaChars.length > 0) {
+      console.log('[流程] 庄家可扎牌: ' + zhaChars.join(', '));
+    }
+    if (fanChar) {
+      console.log('[流程] 庄家可泛牌: ' + fanChar);
+    }
+    var phaseText = '';
+    if (huResult) phaseText += '胡牌';
+    if (fanChar) phaseText += (phaseText ? '/' : '') + '泛牌';
+    if (chuanChar) phaseText += (phaseText ? '/' : '') + '穿牌';
+    if (zhaChars.length > 0) phaseText += (phaseText ? '/' : '') + '扎牌';
+    setPhase('庄家可' + phaseText);
+    actionsDealer.classList.add('show');
+    document.getElementById('btn-hu').style.display = huResult ? '' : 'none';
+    document.getElementById('btn-zhao').style.display = 'none';
+    document.getElementById('btn-pen').style.display = 'none';
+    document.getElementById('btn-zha').style.display = zhaChars.length > 0 ? '' : 'none';
+    document.getElementById('btn-fan').style.display = fanChar ? '' : 'none';
+    document.getElementById('btn-chuan').style.display = chuanChar ? '' : 'none';
+    document.getElementById('btn-pass').style.display = '';
+    unlockHand();
+    updateUI();
+    return true;
+  }
+  // 隐藏所有操作按钮
+  document.getElementById('btn-fan').style.display = 'none';
+  document.getElementById('btn-chuan').style.display = 'none';
+  document.getElementById('btn-pass').style.display = 'none';
+  actionsDealer.classList.remove('show');
+  return false;
+}
+
+/* ═══════ 锁牌区渲染 ═══════ */
+function renderLockArea() {
+  var container = document.getElementById('lock-area');
+  container.innerHTML = '';
+  if (!G.dealerMelds) { container.style.display = 'none'; return; }
+  var hasZha = false;
+  for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+    var m = G.dealerMelds[mi];
+    if (m.type !== 'zha' || !m.inHand) continue;
+    hasZha = true;
+    var g = document.createElement('div');
+    g.className = 'lock-group';
+
+    // 解扎按钮
+    var btn = document.createElement('button');
+    btn.className = 'lock-btn';
+    btn.textContent = '\u00d7';
+    btn.title = '解扎（换扎）';
+    btn.dataset.zhaIdx = mi;
+    btn.onclick = (function(idx) {
+      return function(e) {
+        e.stopPropagation();
+        unlockZha(idx);
+      };
+    })(mi);
+    g.appendChild(btn);
+
+    var topRow = document.createElement('div');
+    topRow.className = 'lock-top';
+    for (var ci = 0; ci < m.cards.length; ci++) {
+      var card = m.cards[ci];
+      var color = charColor(card.ch);
+      var variant = card.variant || charVariant(card.ch);
+      var cvf = card.v === 'flower' ? ' v-flower' : '';
+      var c = document.createElement('div');
+      c.className = 'card' + (variant ? ' ' + variant : '') + cvf;
+      c.innerHTML = '<span class="card-char" style="color:' + (color === 'red' ? 'var(--red)' : 'var(--black)') + '">' + card.ch + '</span>';
+      topRow.appendChild(c);
+    }
+    g.appendChild(topRow);
+
+    // 赖子扎牌标记
+    if (m.isWildZha) {
+      var tag = document.createElement('div');
+      tag.className = 'lock-wild-tag';
+      tag.textContent = '赖';
+      g.appendChild(tag);
+    }
+
+    var lbl = document.createElement('div');
+    lbl.className = 'lock-label';
+    lbl.textContent = '扎' + m.char;
+    g.appendChild(lbl);
+    container.appendChild(g);
+  }
+  container.style.display = hasZha ? 'flex' : 'none';
+}
+
+/* ═══════ 换扎（解扎+释放锁定的牌回手牌） ═══════ */
+function unlockZha(zhaIdx) {
+  if (!G.dealerMelds || !G.dealerMelds[zhaIdx]) return;
+  var m = G.dealerMelds[zhaIdx];
+  if (m.type !== 'zha' || !m.inHand) return;
+  console.log('[流程] 换扎: 解除扎' + m.char);
+  addLog(NAMES[0], '解扎', m.char);
+  // 将锁牌区的牌释放回手牌
+  for (var ci = 0; ci < m.cards.length; ci++) {
+    var card = m.cards[ci];
+    if (card._zhaUsed) card._zhaUsed = false;
+    // 找到插入位置
+    var insIdx = 0;
+    for (var si = 0; si < handCards.length; si++) {
+if (SORT_ORDER.indexOf(card.ch) >= SORT_ORDER.indexOf(handCards[si].ch)) { insIdx = si; break; }
+      insIdx = si + 1;
+    }
+    handCards.splice(insIdx, 0, card);
+    // 创建DOM元素
+    var color = charColor(card.ch);
+    var variant = card.variant || charVariant(card.ch);
+    var el = createCardEl(card, 0, 0);
+    el.classList.add('in-hand');
+    el.classList.remove('just-drawn');
+    el.style.cursor = 'grab';
+    cardEls.splice(insIdx, 0, el);
+    handZone.appendChild(el);
+  }
+  // 移除该扎牌记录
+  G.dealerMelds.splice(zhaIdx, 1);
+  renderLockArea();
+  rearrangeHand();
+  // 解扎后检测是否还有新的扎牌机会
+  checkDealerZhaAndHu();
+  if (!G._zhaChars || G._zhaChars.length === 0) {
+    if (!G._pendingWin) {
+      setPhase('庄家出牌');
+      G.phase = 'play';
+    }
+  }
+  unlockHand();
+  updateUI();
+}
+
+/* ═══ 庄家扎牌（暗杠） ═══ */
+function dealerZha(ch) {
+  console.log("[流程] dealerZha, ch=" + ch);
+
+  // 如果没有指定字符，且有多个可扎选择，显示选择框
+  if (!ch && G._zhaChars && G._zhaChars.length > 1) {
+    showZhaPickDialog(G._zhaChars);
+    return;
+  }
+  // 单个可扎字符时自动使用
+  if (!ch && G._zhaChars && G._zhaChars.length === 1) ch = G._zhaChars[0];
+
+  actionsDealer.classList.remove('show');
+  document.getElementById('btn-hu').style.display = 'none';
+
+  // 合并暂存牌到手牌
+  if (G.drawnCard) {
+    handCards.push(G.drawnCard);
+    if (G.drawnEl) {
+      G.drawnEl.classList.remove('just-drawn');
+      G.drawnEl.classList.add('in-hand');
+      G.drawnEl.style.cursor = 'grab';
+      G.drawnEl.style.zIndex = '';
+      cardEls.push(G.drawnEl);
+    }
+    G.drawnCard = null; G.drawnEl = null;
+  }
+
+  // 统计手牌中各字符数量
+  var allChars = handCards.map(function(c) { return c.ch; });
+  var counts = {};
+  for (var c of allChars) counts[c] = (counts[c] || 0) + 1;
+  var wildFree = counts[WILD_CHAR] || 0;
+
+  // 判断扎牌类型
+  var wildNeed = 4 - counts[ch]; // 需要的赖子数量
+  var isWildZha = (WILD_USABLE.has(ch) && wildNeed >= 1 && wildNeed <= wildFree);
+  if (!isWildZha) {
+    if (!ch || !counts[ch] || counts[ch] < 4) {
+      console.log('[错误] dealerZha: 字符' + ch + '不足4张');
+      unlockHand(); return;
+    }
+  }
+
+  // ★ 从手牌区和cardEls/DOM中移除扎牌的4张牌
+  var zhaCards = [];
+  var removed = 0;
+  var needCh = isWildZha ? counts[ch] : 4; // 赖子精扎时移除所有该字（2或3张）
+  for (var i = handCards.length - 1; i >= 0 && removed < needCh; i--) {
+    if (handCards[i].ch === ch) {
+      zhaCards.unshift(handCards.splice(i, 1)[0]);
+      if (i < cardEls.length) {
+        var el = cardEls.splice(i, 1)[0];
+        if (el.parentNode) el.remove();
+      }
+      removed++;
+    }
+  }
+  // 移除所需数量的赖子
+  if (isWildZha) {
+    var wildRemoved = 0;
+    for (var i = handCards.length - 1; i >= 0 && wildRemoved < wildNeed; i--) {
+      if (handCards[i].ch === WILD_CHAR && !handCards[i]._zhaUsed) {
+        handCards[i]._zhaUsed = true;
+        zhaCards.push(handCards.splice(i, 1)[0]);
+        if (i < cardEls.length) {
+          var el = cardEls.splice(i, 1)[0];
+          if (el.parentNode) el.remove();
+        }
+        wildRemoved++;
+      }
+    }
+  }
+
+  if (!G.dealerMelds) G.dealerMelds = [];
+  G.dealerMelds.push({ type: 'zha', char: ch, count: 4, cards: zhaCards, inHand: true, isWildZha: !!isWildZha });
+  addLog(NAMES[0], '扎', ch + (isWildZha ? '(赖)' : ''));
+  // ★ 渲染锁牌区 + 重排手牌
+  renderLockArea();
+  rearrangeHand();
+
+  // 扎牌后检测穿牌（摸牌底，如果摸到同字第5张→穿牌升级）
+  dealerCheckChuan(ch, isWildZha);
+}
+/* ═══ 扎牌选择框 ═══ */
+function showZhaPickDialog(chars) {
+  console.log('[流程] 显示扎牌选择框: ' + chars.join(', '));
+  var overlay = document.getElementById('zha-pick-overlay');
+  var options = document.getElementById('zha-pick-options');
+  options.innerHTML = '';
+  for (var i = 0; i < chars.length; i++) {
+    var c = chars[i];
+    var color = charColor(c);
+    var label = color === 'red' ? '红' : '黑';
+    var btn = document.createElement('div');
+    btn.className = 'zha-pick-btn';
+    btn.innerHTML = '<div class="zha-pick-ch ' + label + '">' + c + '</div><div class="zha-pick-label">扎' + c + '</div>';
+    btn.dataset.ch = c;
+    btn.onclick = (function(ch) {
+      return function() {
+        overlay.classList.remove('show');
+        dealerZha(ch);
+      };
+    })(c);
+    options.appendChild(btn);
+  }
+  overlay.classList.add('show');
+}
+
+function cancelZhaPick() {
+  console.log('[流程] 取消扎牌选择');
+  var overlay = document.getElementById('zha-pick-overlay');
+  overlay.classList.remove('show');
+  // 取消扎牌选择 = 过，继续出牌
+  G._zhaChars = null;
+  G._zhaChar = null;
+  // 如果同时有自摸待定，保留胡牌按钮
+  if (G._pendingWin) {
+    setPhase('庄家可胡牌');
+    actionsDealer.classList.add('show');
+    document.getElementById('btn-hu').style.display = '';
+    document.getElementById('btn-zhao').style.display = 'none';
+    document.getElementById('btn-pen').style.display = 'none';
+    document.getElementById('btn-zha').style.display = 'none';
+    document.getElementById('btn-pass').style.display = '';
+    unlockHand();
+    updateUI();
+  } else {
+    setPhase('庄家出牌');
+    G.phase = 'play';
+    unlockHand();
+    updateUI();
+  }
+}
+
+/* ═══ 穿牌/泛牌检测（扎/招后拿到同字第5张） ═══ */
+// 扎牌自摸同字→穿牌（摸牌底），招牌自摸同字或旁家出同字→泛牌（摸牌顶）
+// 此函数由dealerZha调用（扎牌后检查升级），dealerZhao中的泛牌检测内联处理
+function dealerCheckChuan(ch, isWildZha) {
+  // 穿牌流程: 扎牌后先摸牌底，再检查摸到的牌是否同字→穿牌升级
+  // isWildZha: 是否为赖子扎牌（3张同字+1赖子），穿牌时检测第4张物理牌
+  if (G.deckCount > 0) {
+    var drawnCh = G.deck.shift();
+    G.deckCount--;
+    var data = parseDeckCard(drawnCh);
+    var pureCh = drawnCh.indexOf(':') >= 0 ? drawnCh.substring(0, drawnCh.indexOf(':')) : drawnCh;
+    addLog(NAMES[0], '摸牌', pureCh);
+    setPhase('庄家摸牌中');
+
+    animateDealerDraw(data, function() {
+      // 摸牌完成后检查是否为穿牌字
+      if (G.drawnCard && G.drawnCard.ch === ch) {
+        // 摸到同字 → 穿牌升级！
+        console.log('[流程] 穿牌! ch=' + ch + (isWildZha ? ' (赖子扎→穿)' : ''));
+        // 从暂存牌取穿牌字
+        if (G.drawnEl && G.drawnEl.parentNode === handZone) G.drawnEl.remove();
+        G.drawnCard = null; G.drawnEl = null;
+
+        // 穿牌升级：从锁牌区移除扎牌记录，替换为穿牌记录
+        var zhaRecord = null;
+        for (var mi = G.dealerMelds.length - 1; mi >= 0; mi--) {
+          if (G.dealerMelds[mi].type === 'zha' && G.dealerMelds[mi].char === ch) {
+            zhaRecord = G.dealerMelds.splice(mi, 1)[0];
+            break;
+          }
+        }
+        // 将扎牌记录升级为穿牌（保留cards数据，改为type:'chuan'，清除inHand标记）
+        if (zhaRecord) {
+          zhaRecord.type = 'chuan';
+          zhaRecord.count = 5;
+          delete zhaRecord.inHand;
+          G.dealerMelds.push(zhaRecord);
+        }
+        addDealerMeld('chuan', ch, ch, zhaRecord ? zhaRecord.cards : null);
+        addLog(NAMES[0], '穿', ch + (isWildZha ? '(赖)' : ''));
+        renderLockArea();
+        rearrangeHand();
+
+        // 穿牌后再摸牌底补牌
+        if (G.deckCount > 0) {
+          var drawnCh2 = G.deck.shift();
+          G.deckCount--;
+          var data2 = parseDeckCard(drawnCh2);
+          var pureCh2 = drawnCh2.indexOf(':') >= 0 ? drawnCh2.substring(0, drawnCh2.indexOf(':')) : drawnCh2;
+          addLog(NAMES[0], '摸牌', pureCh2);
+          setPhase('庄家摸牌中');
+          animateDealerDraw(data2, function() {
+            checkDealerZhaAndHu();
+            if (!G._zhaChars || G._zhaChars.length === 0) {
+              if (!G._pendingWin) {
+                setPhase('庄家出牌');
+                G.phase = 'play';
+              }
+            }
+            unlockHand();
+            updateUI();
+          });
+        } else {
+          setPhase('庄家出牌');
+          unlockHand();
+          updateUI();
+        }
+      } else {
+        // 摸到的不是穿牌字，正常继续
+        checkDealerZhaAndHu();
+        if (!G._zhaChars || G._zhaChars.length === 0) {
+          if (!G._pendingWin) {
+            setPhase('庄家出牌');
+            G.phase = 'play';
+          }
+        }
+        unlockHand();
+        updateUI();
+      }
+    });
+  } else {
+    setPhase('庄家出牌');
+    unlockHand();
+    updateUI();
+  }
+}
+
+
+// ═══ 庄家穿牌（正常摸牌流程中触发） ═══
+function dealerChuan() {
+  console.log('[流程] dealerChuan');
+  actionsDealer.classList.remove('show');
+
+  // 找到匹配的inHand扎牌
+  var chuanChar = null;
+  var chuanIsWildZha = false;
+  if (G.drawnCard && G.dealerMelds) {
+    for (var mi = 0; mi < G.dealerMelds.length; mi++) {
+      var cm = G.dealerMelds[mi];
+      if (cm.type === 'zha' && cm.inHand && cm.char === G.drawnCard.ch) {
+        chuanChar = G.drawnCard.ch;
+        chuanIsWildZha = !!cm.isWildZha;
+        break;
+      }
+    }
+  }
+  if (!chuanChar) { console.log('[错误] dealerChuan: 无匹配扎牌'); return; }
+
+  // 取暂存牌
+  if (G.drawnEl && G.drawnEl.parentNode === handZone) G.drawnEl.remove();
+  G.drawnCard = null; G.drawnEl = null;
+
+  // 穿牌升级
+  var zhaRecord = null;
+  for (var mi = G.dealerMelds.length - 1; mi >= 0; mi--) {
+    if (G.dealerMelds[mi].type === 'zha' && G.dealerMelds[mi].char === chuanChar) {
+      zhaRecord = G.dealerMelds.splice(mi, 1)[0];
+      break;
+    }
+  }
+  if (zhaRecord) {
+    zhaRecord.type = 'chuan';
+    zhaRecord.count = 5;
+    delete zhaRecord.inHand;
+    // 添加穿牌的第5张牌到cards中
+    var chuanCard = makeCardData(chuanChar);
+    zhaRecord.cards.push(chuanCard);
+    zhaRecord.chars.push(chuanChar);
+    G.dealerMelds.push(zhaRecord);
+  }
+  addDealerMeld('chuan', chuanChar, chuanChar, zhaRecord ? zhaRecord.cards : null);
+  addLog(NAMES[0], '穿', chuanChar + (chuanIsWildZha ? '(赖)' : ''));
+  renderLockArea();
+  rearrangeHand();
+
+  // 穿牌后补摸一张牌
+  if (G.deckCount > 0) {
+    var drawnCh = G.deck.shift();
+    G.deckCount--;
+    var data = parseDeckCard(drawnCh);
+    var pureCh = drawnCh.indexOf(':') >= 0 ? drawnCh.substring(0, drawnCh.indexOf(':')) : drawnCh;
+    addLog(NAMES[0], '摸牌', pureCh);
+    setPhase('庄家摸牌中');
+    animateDealerDraw(data, function() {
+      checkDealerZhaAndHu();
+      if (!G._zhaChars || G._zhaChars.length === 0) {
+        if (!G._pendingWin) {
+          setPhase('庄家出牌');
+          G.phase = 'play';
+        }
+      }
+      unlockHand();
+      updateUI();
+    });
+  } else {
+    setPhase('庄家出牌');
+    G.phase = 'play';
+    unlockHand();
+    updateUI();
+  }
+}
+
+/* ═══ 庄家过 ═══ */
+function dealerPass() {
+  console.log("[流程] dealerPass");
+  actionsDealer.classList.remove('show');
+  addLog(NAMES[0], '过', '');
+  const fromIdx = G.lastPlayedFrom;
+  const otherPlayers = [1, 2].filter(p => p !== fromIdx);
+  const ch = G.lastPlayedChar;
+
+  let found = false;
+  for (const pi of otherPlayers) {
+    const count = opponentHands[pi].filter(c => c === ch).length;
+    if (count >= 2) {
+      addLog(NAMES[pi], '碰', ch);
+      setPhase(NAMES[pi] + '碰牌中');
+      setTimeout(() => opponentPen(pi, ch), 800);
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    setTimeout(() => passToNext(fromIdx), 400);
+  }
+}
+
+/* ═══ 操作权流转 ═══ */
+function passToNext(fromIdx) {
+  console.log("[流程] passToNext, from=" + fromIdx + ", deckCount=" + G.deckCount);
+  if (G.gameOver) return;
+  const next = (fromIdx + 1) % 3;
+
+  if (next === 0) {
+    // 轮到庄家 → 摸牌
+    if (G.deckCount <= 0) { endGame(); return; }
+    const drawnCh = G.deck.pop();
+    G.deckCount--;
+    const data = parseDeckCard(drawnCh);
+
+    addLog(NAMES[0], '摸牌', drawnCh.indexOf(':')>=0 ? drawnCh.substring(0,drawnCh.indexOf(':')) : drawnCh);
+    setPhase('庄家摸牌中');
+
+    animateDealerDraw(data, () => {
+      hideTingPanel();
+      // 摸牌后检测自摸/扎牌/穿牌
+      if (checkDealerZhaAndHu()) return;
+      setPhase('庄家出牌');
+      G.phase = 'play';
+      unlockHand();
+      updateUI();
+    });
+  } else {
+    // 旁家自动摸牌+出牌
+    if (G.deckCount <= 0) { endGame(); return; }
+    setPhase(NAMES[next] + '摸牌出牌中');
+    setTimeout(() => opponentAutoPlay(next), 800);
+  }
+}
+
+/* ═══ 旁家自动出牌 ═══ */
+function opponentAutoPlay(playerIdx) {
+  console.log("[流程] opponentAutoPlay, player=" + playerIdx + ", hand=" + opponentHands[playerIdx].length + ", deckCount=" + G.deckCount);
+  if (G.gameOver) return;
+  const hand = opponentHands[playerIdx];
+  if (hand.length === 0) return;
+
+  if (G.deckCount > 0) {
+    var ds = G.deck.pop(); hand.push(ds.indexOf(':') >= 0 ? ds.substring(0, ds.indexOf(':')) : ds);
+    G.deckCount--;
+  } else { endGame(); return; }
+
+  // 旁家摸牌后检测扎牌（4张同字暗杠 或 赖子精扎3同字+1赖子）
+  const oppCounts = {};
+  for (const c of hand) oppCounts[c] = (oppCounts[c] || 0) + 1;
+  let zhaChar = null;
+  let isWildZha = false;
+
+  // 优先检测物理4张扎牌（价值最高）
+  for (const c in oppCounts) {
+    if (oppCounts[c] >= 4 && c !== '赖') { zhaChar = c; break; }
+  }
+  // 其次检测赖子精扎：N张三五七 + (4-N)赖子
+  if (!zhaChar) {
+    const wildCnt = oppCounts['赖'] || 0;
+    if (wildCnt > 0) {
+      // 遍历三五七，选可精扎的（物理张数+赖子>=4）
+      let bestC = null, bestN = 0;
+      for (const wc of ['三','五','七']) {
+        const n = oppCounts[wc] || 0;
+        const need = 4 - n;
+        if (n >= 2 && need >= 1 && need <= wildCnt && n > bestN) { bestC = wc; bestN = n; }
+      }
+      if (bestC) { zhaChar = bestC; isWildZha = true; }
+    }
+  }
+
+  if (zhaChar) {
+    // 执行扎牌
+    const removeCh = zhaChar;
+    const removeN = isWildZha ? 3 : 4;
+    let removed = 0;
+    for (let i = hand.length - 1; i >= 0 && removed < removeN; i--) {
+      if (hand[i] === removeCh) { hand.splice(i, 1); removed++; }
+    }
+    if (isWildZha) {
+      var aiWildNeed = 4 - oppCounts[zhaChar];
+      let wr = 0;
+      for (let i = hand.length - 1; i >= 0 && wr < aiWildNeed; i--) {
+        if (hand[i] === '赖') { hand.splice(i, 1); wr++; }
+      }
+    }
+    const zhaCards = isWildZha
+      ? [zhaChar,zhaChar,zhaChar,'赖']
+      : [zhaChar,zhaChar,zhaChar,zhaChar];
+    opponentMelds[playerIdx].push({ type: 'zha', cards: zhaCards, char: zhaChar, isWildZha: isWildZha });
+    addOpponentMeld(playerIdx, 'zha', zhaChar);
+    updateOpponentCounts();
+    addLog(NAMES[playerIdx], '扎', zhaChar + (isWildZha ? '(赖)' : ''));
+
+    // 扎牌后摸牌底，检测穿牌（摸到同字第5张）
+    let chuanDone = false;
+    if (G.deckCount > 0) {
+      const ds2raw = G.deck.shift(); G.deckCount--;
+      const ds2 = ds2raw.indexOf(':') >= 0 ? ds2raw.substring(0, ds2raw.indexOf(':')) : ds2raw;
+      hand.push(ds2);
+      addLog(NAMES[playerIdx], '扎后摸牌', ds2);
+
+      // 穿牌检测：摸到同字第5张 → 穿牌升级
+      // 物理扎牌：需要第5张同字；赖子精扎：物理3张已出，第4张同字即可穿
+      if (ds2 === zhaChar) {
+        chuanDone = true;
+        // 从手牌移除穿牌字
+        for (let i = hand.length - 1; i >= 0; i--) {
+          if (hand[i] === zhaChar) { hand.splice(i, 1); break; }
+        }
+        // 赖子精穿：需要相应赖子凑5张
+        if (isWildZha) {
+          var chuanWildNeed = isWildZha ? 1 : 0;
+          let cwr = 0;
+          for (let i = hand.length - 1; i >= 0 && cwr < chuanWildNeed; i--) {
+            if (hand[i] === '赖') { hand.splice(i, 1); cwr++; }
+          }
+        }
+        // 更新melds：扎牌→穿牌
+        const chuanCards = isWildZha
+          ? [zhaChar,zhaChar,zhaChar,'赖',zhaChar]
+          : [zhaChar,zhaChar,zhaChar,zhaChar,zhaChar];
+        for (let mi = opponentMelds[playerIdx].length - 1; mi >= 0; mi--) {
+          if (opponentMelds[playerIdx][mi].type === 'zha' && opponentMelds[playerIdx][mi].char === zhaChar) {
+            opponentMelds[playerIdx][mi].type = 'chuan';
+            opponentMelds[playerIdx][mi].cards = chuanCards;
+            opponentMelds[playerIdx][mi].count = 5;
+            break;
+          }
+        }
+        // 移除旧的扎牌DOM组
+        var autoCId = playerIdx === 1 ? 'melds-left' : 'melds-right';
+        var autoC = document.getElementById(autoCId);
+        if (autoC) {
+          var oldAG = autoC.querySelectorAll('.meld-group');
+          for (var agi = 0; agi < oldAG.length; agi++) {
+            var aGL = oldAG[agi].querySelector('.meld-label');
+            if (aGL && aGL.textContent === '扎') {
+              var aGC = oldAG[agi].querySelectorAll('.card-char');
+              if (aGC.length > 0 && aGC[0].textContent === zhaChar) {
+                oldAG[agi].remove();
+                break;
+              }
+            }
+          }
+        }
+        // 移除旧的扎牌DOM组
+        var autoCId = playerIdx === 1 ? 'melds-left' : 'melds-right';
+        var autoC = document.getElementById(autoCId);
+        if (autoC) {
+          var oldAG = autoC.querySelectorAll('.meld-group');
+          for (var agi = 0; agi < oldAG.length; agi++) {
+            var aGL = oldAG[agi].querySelector('.meld-label');
+            if (aGL && aGL.textContent === '扎') {
+              var aGC = oldAG[agi].querySelectorAll('.card-char');
+              if (aGC.length > 0 && aGC[0].textContent === zhaChar) {
+                oldAG[agi].remove();
+                break;
+              }
+            }
+          }
+        }
+        addOpponentMeld(playerIdx, 'chuan', zhaChar);
+        updateOpponentCounts();
+        addLog(NAMES[playerIdx], '穿', zhaChar + (isWildZha ? '(赖精穿)' : ''));
+
+        // 穿牌后再摸牌底补牌
+        if (G.deckCount > 0) {
+          const ds3raw = G.deck.shift(); G.deckCount--;
+          const ds3 = ds3raw.indexOf(':') >= 0 ? ds3raw.substring(0, ds3raw.indexOf(':')) : ds3raw;
+          hand.push(ds3);
+          addLog(NAMES[playerIdx], '穿后摸牌', ds3);
+        }
+      }
+    }
+
+    // 扎牌/穿牌后再次检测是否有新的扎牌机会（连续扎牌）
+    if (!chuanDone) {
+      const reCounts = {};
+      for (const c of hand) reCounts[c] = (reCounts[c] || 0) + 1;
+      let reZha = null, reWild = false;
+      for (const c in reCounts) {
+        if (reCounts[c] >= 4 && c !== '赖') { reZha = c; break; }
+      }
+      if (!reZha) {
+        const wC = reCounts['赖'] || 0;
+        if (wC > 0) {
+          let bC2 = null, bN2 = 0;
+          for (const wc of ['三','五','七']) {
+            const n = reCounts[wc] || 0;
+            const need = 4 - n;
+            if (n >= 2 && need >= 1 && need <= wC && n > bN2) { bC2 = wc; bN2 = n; }
+          }
+          if (bC2) { reZha = bC2; reWild = true; }
+        }
+      }
+      if (reZha) {
+        // 递归执行扎牌（此处简化：直接执行，不再递归穿牌检测）
+        var rWildNeed = reWild ? (4 - (reCounts[reZha]||0)) : 0;
+        const rN = reWild ? (reCounts[reZha]||0) : 4;
+        let rRm = 0;
+        for (let i = hand.length - 1; i >= 0 && rRm < rN; i--) {
+          if (hand[i] === reZha) { hand.splice(i, 1); rRm++; }
+        }
+        if (reWild) {
+          let rwr = 0;
+          for (let i = hand.length - 1; i >= 0 && rwr < rWildNeed; i--) {
+            if (hand[i] === '赖') { hand.splice(i, 1); rwr++; }
+          }
+        }
+        const rCards = reWild
+          ? [reZha,reZha,reZha,'赖']
+          : [reZha,reZha,reZha,reZha];
+        opponentMelds[playerIdx].push({ type: 'zha', cards: rCards, char: reZha, isWildZha: reWild });
+        addOpponentMeld(playerIdx, 'zha', reZha);
+        updateOpponentCounts();
+        addLog(NAMES[playerIdx], '扎', reZha + (reWild ? '(赖)' : ''));
+        if (G.deckCount > 0) {
+          const ds4raw = G.deck.shift(); G.deckCount--;
+          const ds4 = ds4raw.indexOf(':') >= 0 ? ds4raw.substring(0, ds4raw.indexOf(':')) : ds4raw;
+          hand.push(ds4);
+          addLog(NAMES[playerIdx], '扎后摸牌', ds4);
+        }
+      }
+    }
+  }
+
+  const playIdx = aiPickDiscard(hand);
+  const played = hand.splice(playIdx, 1)[0];
+  addLog(NAMES[playerIdx], '出', played);
+  G.lastPlayedChar = played;
+  G.lastPlayedFrom = playerIdx;
+  addDiscardCard(played, charColor(played), charVariant(played));
+  updateOpponentCounts();
+
+  setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+}
+
+/* ═══ 摸牌动画 ═══ */
+function animateDealerDraw(data, callback) {
+  console.log("[流程] animateDealerDraw, char=" + data.ch + ", variant=" + data.v);
+
+  // 清理旧的暂存牌（如果合入失败残留）
+  if (G.drawnEl && G.drawnEl.parentNode) {
+    G.drawnEl.remove();
+    G.drawnCard = null;
+    G.drawnEl = null;
+  }
+
+  const deckRect = deckZone.getBoundingClientRect();
+  const flyEl = document.createElement('div');
+  flyEl.className = 'card card-back deck-fly';
+  flyEl.innerHTML = '<span class="card-back-text">花</span>';
+  // 用fixed定位做飞行动画（视口坐标）
+  flyEl.style.position = 'fixed';
+  flyEl.style.width = '28px';
+  flyEl.style.height = '40px';
+  flyEl.style.left = (deckRect.left + deckRect.width/2 - 14) + 'px';
+  flyEl.style.top = (deckRect.top + deckRect.height/2 - 20) + 'px';
+  flyEl.style.zIndex = '200';
+  flyEl.style.transition = 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+  flyEl.style.pointerEvents = 'none';
+  document.body.appendChild(flyEl);
+
+  const handRect = handZone.getBoundingClientRect();
+  const targetX = handRect.right - CARD_W - 10;
+  const targetY = handRect.bottom - CARD_H - 10;
+
+  // 飞到右下角
+  setTimeout(() => {
+    flyEl.style.left = targetX + 'px';
+    flyEl.style.top = targetY + 'px';
+    flyEl.style.width = CARD_W + 'px';
+    flyEl.style.height = CARD_H + 'px';
+  }, 50);
+
+  // 翻牌动画（飞行中段）
+  setTimeout(() => {
+    flyEl.style.transform = 'scaleX(0)';
+    setTimeout(() => {
+      const v = data.v || '';
+      flyEl.className = 'card deck-fly' + (v ? ' ' + v : '') + (data.v === 'flower' ? ' v-flower' : '');
+      flyEl.innerHTML = '<span class="card-char ' + data.c + '">' + data.ch + '</span>';
+      flyEl.style.transform = 'scaleX(1)';
+    }, 150);
+  }, 300);
+
+  // 到达后：移入handZone作为暂存牌
+  setTimeout(() => {
+    if (!flyEl.parentNode) return;
+    flyEl.remove();
+
+    // 在handZone中创建暂存牌
+    const stayEl = document.createElement('div');
+    const v = data.v || '';
+    stayEl.className = 'card just-drawn' + (v ? ' ' + v : '') + (data.v === 'flower' ? ' v-flower' : '');
+    stayEl.innerHTML = '<span class="card-char ' + data.c + '">' + data.ch + '</span>';
+    stayEl.style.position = 'absolute';
+    stayEl.style.left = (handZone.offsetWidth - CARD_W - 10) + 'px';
+    stayEl.style.top = (handZone.offsetHeight - CARD_H - 10) + 'px';
+    stayEl.style.zIndex = '50';
+    stayEl.dataset.ch = data.ch;
+    stayEl.dataset.color = data.c;
+    stayEl.dataset.variant = data.v || '';
+    stayEl.style.pointerEvents = 'auto';
+    stayEl.style.cursor = 'pointer';
+    handZone.appendChild(stayEl);
+
+    G.drawnCard = data;
+    G.drawnEl = stayEl;
+
+    // 注册出牌事件
+    stayEl.addEventListener('dblclick', function(ev) {
+      ev.stopPropagation();
+      if (!G.locked && !G.gameOver) playCard(stayEl);
+    });
+    stayEl.addEventListener('mousedown', function(ev) {
+      ev.preventDefault();
+      dragStartPos = {x:ev.clientX, y:ev.clientY};
+      beginDrag(stayEl, ev.clientX, ev.clientY);
+    });
+    stayEl.addEventListener('touchstart', function(ev) {
+      ev.preventDefault();
+      const t = ev.touches[0];
+      dragStartPos = {x:t.clientX, y:t.clientY};
+      beginDrag(stayEl, ev.clientX, ev.clientY);
+    }, {passive:false});
+
+    updateDeckVisual();
+    if (callback) callback();
+  }, 600);
+}
+
+/* ═══ 余牌堆视觉 ═══ */
+function updateDeckVisual() {
+  const pile = deckZone.querySelector('.draw-pile');
+  pile.innerHTML = '';
+  const show = Math.min(3, Math.ceil(G.deckCount / 8));
+  for (let i = 0; i < show; i++) {
+    const el = document.createElement('div');
+    el.className = 'card card-back';
+    el.innerHTML = '<span class="card-back-text">花</span>';
+    pile.appendChild(el);
+  }
+  document.getElementById('deck-count').textContent = G.deckCount;
+}
+
+/* ═══ 流局 ═══ */
+function endGame() {
+  G.gameOver = true;
+  lockHand();
+  setPhase('流局');
+  addLog('', '余牌耗尽，流局！', '');
+
+  document.getElementById('game-over-sub').textContent =
+    '共 ' + G.round + ' 回合 | 庄家剩余 ' + handCards.length + ' 张 | 下家剩余 ' + opponentHands[1].length + ' 张 | 上家剩余 ' + opponentHands[2].length + ' 张';
+  document.getElementById('game-over').classList.add('show');
+
+  // 流局统计
+  _gameStats.totalGames++;
+  _gameStats.draws++;
+  _gameStats.records.push({
+    gameNo: _gameStats.totalGames,
+    result: '流局',
+    hu: '-', winType: '-', winner: '-',
+    score: 0
+  });
+}
+
+/* ═══ 庄家明牌渲染 ═══ */
+function addDealerMeld(type, char, extraChar, cardsData) {
+  const container = document.getElementById('melds-bottom');
+  if (!container.querySelector('.melds-col')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'melds-col';
+    wrap.style.display = 'flex';
+    wrap.style.gap = '6px';
+    container.appendChild(wrap);
+  }
+  const wrap = container.querySelector('.melds-col');
+  const g = document.createElement('div');
+  g.className = 'meld-group';
+  g.style.display = 'flex';
+  g.style.flexDirection = 'row';
+  g.style.alignItems = 'center';
+
+  var cardCount, label;
+  if (type === 'pen') { cardCount = 3; label = '碰'; }
+  else if (type === 'zhao') { cardCount = 4; label = '招'; }
+  else if (type === 'zha') { cardCount = 4; label = '扎'; }
+  else if (type === 'chuan') { cardCount = 5; label = '穿'; }
+  else if (type === 'fan') { cardCount = 5; label = '泛'; }
+  else { cardCount = 3; label = type; }
+
+  // 上排: 主牌(3张碰/4张招扎)
+  var topRow = document.createElement('div');
+  topRow.style.display = 'flex';
+  topRow.style.gap = '3px';
+
+  var cls = type === 'pen' ? 'open-pen' : (type === 'zhao' ? 'open-zhao' : (type === 'zha' ? 'hidden-kan' : ''));
+  var showCount = Math.min(cardCount, 4);
+  for (var i = 0; i < showCount; i++) {
+    var ch_i = (type === 'chuan' || type === 'fan') && i === 4 ? (extraChar || char) : char;
+    var cv = cardsData && cardsData[i] && cardsData[i].v === 'flower' ? ' v-flower' : '';
+    var c = document.createElement('div');
+    c.className = 'card ' + cls + (charVariant(ch_i) ? ' ' + charVariant(ch_i) : '') + cv;
+    c.innerHTML = '<span class="card-char" style="color:' + (charColor(ch_i) === 'red' ? 'var(--red)' : 'var(--black)') + '">' + ch_i + '</span>';
+    topRow.appendChild(c);
+  }
+
+  // 穿牌/泛牌的第5张单独一行
+  if (cardCount === 5) {
+    var bottomRow = document.createElement('div');
+    bottomRow.style.display = 'flex';
+    bottomRow.style.gap = '3px';
+    var cv5 = cardsData && cardsData[4] && cardsData[4].v === 'flower' ? ' v-flower' : '';
+    var c5 = document.createElement('div');
+    c5.className = 'card ' + (type === 'chuan' ? 'chuan-extra' : 'fan-extra') + (charVariant(extraChar || char) ? ' ' + charVariant(extraChar || char) : '') + cv5;
+    c5.innerHTML = '<span class="card-char" style="color:' + (charColor(extraChar || char) === 'red' ? 'var(--red)' : 'var(--black)') + '">' + (extraChar || char) + '</span>';
+    bottomRow.appendChild(c5);
+    g.appendChild(topRow);
+    g.appendChild(bottomRow);
+  } else {
+    g.appendChild(topRow);
+  }
+
+  // 标签
+  var lbl = document.createElement('div');
+  lbl.className = 'meld-label';
+  lbl.textContent = label;
+  g.appendChild(lbl);
+
+  wrap.appendChild(g);
+}
+/* ═══ 旁家明牌区显示 ═══ */
+function addOpponentMeld(playerIdx, type, char) {
+  var containerId = playerIdx === 1 ? 'melds-left' : 'melds-right';
+  var container = document.getElementById(containerId);
+  if (!container) return;
+
+  var g = document.createElement('div');
+  g.className = 'meld-group';
+  g.style.display = 'flex';
+  g.style.flexDirection = 'column';
+  g.style.alignItems = 'center';
+
+  var cardCount, label;
+  if (type === 'pen') { cardCount = 3; label = '碰'; }
+  else if (type === 'zhao') { cardCount = 4; label = '招'; }
+  else if (type === 'zha') { cardCount = 4; label = '扎'; }
+  else if (type === 'chuan') { cardCount = 5; label = '穿'; }
+  else if (type === 'fan') { cardCount = 5; label = '泛'; }
+  else { cardCount = 3; label = type; }
+
+  var topRow = document.createElement('div');
+  topRow.style.display = 'flex';
+  topRow.style.gap = '3px';
+
+  var cls = type === 'pen' ? 'open-pen' : (type === 'zhao' ? 'open-zhao' : (type === 'zha' ? 'hidden-kan' : ''));
+  var showCount = Math.min(cardCount, 4);
+  for (var i = 0; i < showCount; i++) {
+    var c = document.createElement('div');
+    c.className = 'card ' + cls;
+    c.innerHTML = '<span class="card-char" style="color:' + (charColor(char) === 'red' ? 'var(--red)' : 'var(--black)') + '">' + char + '</span>';
+    topRow.appendChild(c);
+  }
+
+  if (cardCount === 5) {
+    var bottomRow = document.createElement('div');
+    bottomRow.style.display = 'flex';
+    bottomRow.style.gap = '3px';
+    var c5 = document.createElement('div');
+    c5.className = 'card ' + (type === 'chuan' ? 'chuan-extra' : 'fan-extra');
+    c5.innerHTML = '<span class="card-char" style="color:' + (charColor(char) === 'red' ? 'var(--red)' : 'var(--black)') + '">' + char + '</span>';
+    bottomRow.appendChild(c5);
+    g.appendChild(topRow);
+    g.appendChild(bottomRow);
+  } else {
+    g.appendChild(topRow);
+  }
+
+  var lbl = document.createElement('div');
+  lbl.className = 'meld-label';
+  lbl.textContent = label;
+  g.appendChild(lbl);
+
+  container.appendChild(g);
+}
+
+
+
+/* ═══ UI更新 ═══ */
+function updateUI() {
+  document.getElementById('hand-count').textContent = handCards.length;
+  document.getElementById('round-num').textContent = G.round;
+  updateDeckVisual();
+}
+
+function updateOpponentCounts() {
+  document.getElementById('left-count').textContent = opponentHands[1].length;
+  document.getElementById('left-meld').textContent = opponentMelds[1].reduce((s,m) => s+m.cards.length, 0);
+  document.getElementById('right-count').textContent = opponentHands[2].length;
+  document.getElementById('right-meld').textContent = opponentMelds[2].reduce((s,m) => s+m.cards.length, 0);
+}
+
+function setActivePlayer(idx) {
+  document.querySelectorAll('.player-info').forEach(el => el.classList.remove('active'));
+  const ids = ['pi-bottom', 'pi-left', 'pi-right'];
+  if (ids[idx]) document.getElementById(ids[idx]).classList.add('active');
+}
+
+function setPhase(text, isDrawing) {
+  const el = document.getElementById('phase-text');
+  el.textContent = text;
+  el.classList.toggle('waiting', text.includes('等待'));
+  el.classList.toggle('drawing', !!isDrawing);
+  // 更新听牌提示
+  if (text.includes('庄家出牌')) {
+    setTimeout(updateTingHint, 50);
+  } else {
+    const tingEl = document.getElementById('ting-hint');
+    if (tingEl) tingEl.style.display = 'none';
+  }
+}
+
+function addLog(who, action, card) {
+  const list = document.getElementById('log-list');
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.innerHTML = who
+    ? '<span class="log-who">' + who + '</span> <span class="log-act">' + action + '</span> ' + card
+    : '<span style="color:rgba(245,240,225,0.35)">' + action + '</span> ' + card;
+  list.prepend(item);
+  while (list.children.length > 12) list.removeChild(list.lastChild);
+}
+
+/* ═══ 上/下家牌背 ═══ */
+function buildSideHand(id, count) {
+  const c = document.getElementById(id);
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'card card-back';
+    el.innerHTML = '<span class="card-back-text">花</span>';
+    if (i > 0) el.style.marginLeft = '-10px';
+    c.appendChild(el);
+  }
+}
+
+
+
+// initGame中增加dealerMelds初始化
+const _origInitGame = initGame;
+initGame = function() {
+  G.dealerMelds = [];
+  G._pendingWin = null;
+  G._pendingFan = null;
+  G._skippedOps = {};
+  const tingEl = document.getElementById('ting-hint');
+  if (tingEl) tingEl.style.display = 'none';  // 过牌记录: { 'pen_上': true, 'zhao_三': true, 'hu': true }
+  _origInitGame();
+};
+
+// 修改dealerPen：记录碰牌到dealerMelds，支持泛牌模式
+const _origDealerPen = dealerPen;
+dealerPen = function() {
+  // 泛牌模式：扎牌+旁家出同字+庄家手中2张→泛牌
+  if (G._pendingFan) {
+    const ch = G._pendingFan;
+    G._pendingFan = null;
+    actionsDealer.classList.remove('show');
+    document.getElementById('btn-pen').style.display = 'none';
+    document.getElementById('btn-pass').style.display = 'none';
+
+    // 从手牌+暂存牌中取出2张该字
+    let removed = 0;
+    for (let i = handCards.length - 1; i >= 0 && removed < 2; i--) {
+      if (handCards[i].ch === ch) {
+        handCards.splice(i, 1);
+        const el = cardEls.splice(i, 1)[0];
+        if (el && el.parentNode === handZone) handZone.removeChild(el);
+        removed++;
+      }
+    }
+    if (removed < 2 && G.drawnCard && G.drawnCard.ch === ch) {
+      handCards.push(G.drawnCard);
+      const dEl = G.drawnEl;
+      if (dEl && dEl.parentNode === handZone) { handZone.removeChild(dEl); }
+      G.drawnCard = null; G.drawnEl = null;
+      rearrangeHand();
+      const extraIdx = handCards.findIndex(c => c.ch === ch);
+      if (extraIdx !== -1) {
+        handCards.splice(extraIdx, 1);
+        const el2 = cardEls.splice(extraIdx, 1)[0];
+        if (el2 && el.parentNode === handZone) handZone.removeChild(el2);
+        removed++;
+      }
+    }
+
+    // 取弃牌池中的牌
+    const lastDiscard = discardPool.lastElementChild;
+    if (lastDiscard) lastDiscard.remove();
+
+    // 升级扎牌为泛牌
+    var zhaFanCards = null;
+    for (var mi = G.dealerMelds.length - 1; mi >= 0; mi--) {
+      if (G.dealerMelds[mi].type === 'zha' && G.dealerMelds[mi].char === ch) {
+        G.dealerMelds[mi] = { type: 'fan', char: ch, count: 5, cards: G.dealerMelds[mi].cards };
+        zhaFanCards = G.dealerMelds[mi].cards;
+        break;
+      }
+    }
+
+    addDealerMeld('fan', ch, ch, zhaFanCards);
+    addLog(NAMES[0], '泛', ch);
+
+    // 泛牌后摸牌顶
+    if (G.deckCount > 0) {
+      var drawnCh = G.deck.pop();
+      G.deckCount--;
+      var data = parseDeckCard(drawnCh);
+      addLog(NAMES[0], '泛后摸牌', drawnCh.indexOf(':')>=0 ? drawnCh.substring(0,drawnCh.indexOf(':')) : drawnCh);
+      setPhase('庄家摸牌中');
+      animateDealerDraw(data, function() {
+        setPhase('庄家出牌');
+        G.phase = 'play';
+        unlockHand();
+        updateUI();
+      });
+    } else {
+      setPhase('庄家出牌');
+      G.phase = 'play';
+      unlockHand();
+      updateUI();
+    }
+    return;
+  }
+
+  // _origDealerPen() 内部已完整构建penCards并push到G.dealerMelds，不再重复
+  _origDealerPen();
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   Step5: 胡牌检测 + 结算
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── 胡牌常量 ──
+
+// ── 常量已移至文件前部（makeCardData 之前）避免 TDZ ──
+
+
+// ═══════════════════════════════════════════════════
+// 精牌查表（区分红精/黑精皮花）
+// ═══════════════════════════════════════════════════
+// 红精: key=(skin_red, flower_red, wild) → [非主精, 主精]
+const RED_KAN_TABLE  = {'1,2,0':[7,14],'2,1,0':[6,12],'3,0,0':[5,10],'0,1,2':[12,24],'0,2,1':[9,18],'1,0,2':[7,14],'1,1,1':[7,14],'2,0,1':[6,12]};
+const RED_PAIR_TABLE = {'0,2,0':[4,8],'1,1,0':[3,6],'2,0,0':[2,4]};
+const RED_ZHAO_TABLE = {'2,2,0':[14,28],'3,1,0':[12,24],'0,2,2':[24,48],'1,1,2':[18,36],'1,2,1':[18,36],'2,0,2':[14,28],'2,1,1':[14,28],'3,0,1':[12,24]};
+// 黑精: key=(skin_black, flower_black) → 胡数(非主精), 主精翻倍
+const BLACK_KAN_TABLE  = {'1,2':3,'2,1':2,'3,0':1};
+const BLACK_PAIR_TABLE = {'0,2':2,'1,1':1,'2,0':0};
+const BLACK_ZHAO_TABLE = {'2,2':4,'3,1':3};
+
+// 分类牌面: 返回 {sr,fr,sb,fb,w,n}
+function _classify(cards) {
+  let sr=0,fr=0,sb=0,fb=0,w=0,n=0;
+  for (const c of cards) {
+    if (c.isWild) { w++; continue; }
+    const isFlower = c.v === 'flower';
+    if (c.isJin) {
+      if (RED_JING.has(c.ch)) { if (isFlower) fr++; else sr++; }
+      else { if (isFlower) fb++; else sb++; }
+    } else { n++; }
+  }
+  return {sr,fr,sb,fb,w,n};
+}
+
+function _lookup(cards, numCards, isMain) {
+  // 含精牌查表: 函数计算替代查表, 支持所有(sr,fr,w)排列组合
+  // 胡数计算:
+  //   红精: 皮精+1/张, 花精+2/张, 赖子+2/张; 主精时翻倍
+  //   黑精: 皮精+0/张, 花精+1/张, 赖子+2/张; 主精时翻倍
+  const cl = _classify(cards);
+  const rt = cl.sr + cl.fr;
+  const bt = cl.sb + cl.fb;
+  if (rt > 0 && bt > 0) return 0; // 不应混红黑精
+  let base = 0;
+  if (rt > 0) {
+    // 红精: 皮精+1/张, 花精+2/张, 赖子+2/张
+    base = cl.sr * 1 + cl.fr * 2 + cl.w * 2;
+  } else if (bt > 0) {
+    // 黑精: 皮精+0/张, 花精+1/张, 赖子+2/张
+    base = cl.sb * 0 + cl.fb * 1 + cl.w * 2;
+  } else {
+    return 0;
+  }
+  return isMain ? base * 2 : base;
+}
+
+// ═══════════════════════════════════════════════════
+// 单个牌型胡数计算
+// ═══════════════════════════════════════════════════
+// 穿牌/泛牌精牌组合查表计胡
+// 红精主精穿牌: 2花2赖1皮=96, 1花2赖1皮/2花1赖1皮=72, 2花3皮/2赖3皮/1花1赖3皮=56
+// 红精非主精(半值): 48/36/28
+// 黑精表: 待补充
+// ═══════════════════════════════════════════════════════════════
+// 精牌胡数速查表（V3反馈版）
+// 规则：主精胡数 = 非主精胡数 × 2
+//       精对 = 精坎 - 2（系统自动推算）
+//       精穿 = 精泛（共用查表）
+//       含赖子组合仅红精(三五七)，黑精无赖子
+// ═══════════════════════════════════════════════════════════════
+
+// 红精非主精查表（key = 花数_皮数_赖数）
+const JING_RED_TABLE = {
+  'pair': {
+    '2_0_0': 2,  '1_1_0': 1,  '0_2_0': 0,
+  },
+  'kan': {
+    '2_0_0': 4,  '1_1_0': 3,  '0_2_0': 2,
+    '1_0_2': 12, '2_0_1': 9,  '0_1_2': 7,  '1_1_1': 7,  '0_2_1': 6,
+  },
+  'zhao': {
+    '2_2_0': 14, '3_1_0': 12,
+    '2_0_2': 24, '1_1_2': 18, '2_1_1': 18,
+    '0_2_2': 14, '1_2_1': 14, '3_0_1': 12,
+  },
+  'chuan': {
+    '2_3_0': 28,
+    '2_0_2': 48, '1_1_2': 36, '2_1_1': 36,
+    '0_3_2': 28, '3_1_1': 28,
+  },
+};
+
+// 黑精查表（单列胡数，key = 花数_皮数_赖数）
+const JING_BLACK_TABLE = {
+  'pair': {
+    '2_0_0': 2,  '1_1_0': 1,  '0_2_0': 0,
+  },
+  'kan': {
+    '2_0_0': 3,  '1_1_0': 2,  '0_2_0': 1,
+  },
+  'zhao': {
+    '1_3_0': 3,  '2_2_0': 4,
+  },
+  'chuan': {
+    '2_3_0': 6,
+  },
+};
+
+
+/* ═══ 启动 ═══ */
+
+function _lookupJingHu(cards, mtype, isMain) {
+  let flower = 0, skin = 0, wild = 0;
+  const hasBlack = cards.some(c => BLACK_JING.has(c.ch));
+  for (const c of cards) {
+    if (c.isWild) { wild++; continue; }
+    if (!c.isJin) continue;
+    if (c.v === 'flower') flower++;
+    else skin++;
+  }
+  const key = flower + '_' + skin + '_' + wild;
+  if (hasBlack) {
+    // 乙九(黑精)使用JING_BLACK_TABLE查表
+    const table = JING_BLACK_TABLE[mtype];
+    if (table && table[key] !== undefined) {
+      const val = table[key];
+      return isMain ? val * 2 : val;
+    }
+    return null;
+  } else {
+    const table = JING_RED_TABLE[mtype];
+    if (table && table[key] !== undefined) {
+      const val = table[key];
+      return isMain ? val * 2 : val;
+    }
+    return null;
+  }
+}
+
+
+function _calcMeld(cards, mtype, isMain, mainJinChar) {
+  const chars = cards.map(c => c.ch);
+  const hasJing = chars.some(ch => JING_CHARS.has(ch));
+  const wc = cards.filter(c => c.isWild).length;
+
+  if (mtype === 'pair') {
+    // 对子(眼): 红牌对子无精牌=0胡；有精牌或赖子→逐张计胡(黑花精+1,皮红精+1,花红精+2,赖子+2)
+    if (hasJing || wc > 0) {
+      const r = _lookupJingHu(cards, 'pair', isMain);
+      if (r !== null) return r;
+      // 查表未命中(乙九黑精): 逐张计胡
+      let h = 0;
+      for (const c of cards) {
+        if (c.isWild) { h += 2; if (mainJinChar) h *= 2; continue; }
+        if (!c.isJin) continue;
+        let jH = 0;
+        if (RED_JING.has(c.ch)) jH = c.v === 'flower' ? 2 : 1;
+        else if (BLACK_JING.has(c.ch)) jH = c.v === 'flower' ? 1 : 0;
+        if (mainJinChar && c.ch === mainJinChar) jH *= 2;
+        h += jH;
+      }
+      return h;
+    }
+    return 0;
+  }
+  if (mtype === 'kou') {
+    // 口眼(半顺): 含赖子→逐张计胡; 含精牌→逐张加分; 无精→0胡
+    if (wc > 0) { let h = 0; for (const c of cards) { if (c.isWild) h += 2; else if (c.isJin) { if (RED_JING.has(c.ch)) h += c.v === 'flower' ? 2 : 1; else h += c.v === 'flower' ? 1 : 0; } } return h; }
+    if (!hasJing) return 0;
+    let h = 0;
+    for (const c of cards) {
+      if (!c.isJin) continue;
+      if (RED_JING.has(c.ch)) h += c.v === 'flower' ? 2 : 1;
+      else if (BLACK_JING.has(c.ch)) h += c.v === 'flower' ? 1 : 0;
+    }
+    return h;
+  }
+  if (mtype === 'kan') {
+    if (!hasJing && wc === 0) {
+      // 纯非精坎: 红坎=2胡，黑坎=1胡
+      return cards.every(c => RED_CHARS.has(c.ch)) ? 2 : 1;
+    }
+    // 涉精牌查表
+    const r = _lookupJingHu(cards, 'kan', isMain);
+    if (r !== null) return r;
+    // 兜底：逐张计胡
+    const base = cards.every(c => RED_CHARS.has(c.ch)) ? 2 : 1;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) bonus += 2;
+      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+    }
+    let hu = base + bonus;
+    if (isMain) hu *= 2;
+    return hu;
+  }
+  if (mtype === 'zhao' || mtype === 'zha') {
+    if (!hasJing && wc === 0) {
+      // 纯非精招/扎: 红=4胡，黑=2胡
+      return cards.every(c => RED_CHARS.has(c.ch)) ? 4 : 2;
+    }
+    // 涉精牌查表（招/扎共用zhao表）
+    const r = _lookupJingHu(cards, 'zhao', isMain);
+    if (r !== null) return r;
+    // 兜底
+    const base = cards.every(c => RED_CHARS.has(c.ch)) ? 4 : 2;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) bonus += 2;
+      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+    }
+    let hu = base + bonus;
+    if (isMain) hu *= 2;
+    return hu;
+  }
+  if (mtype === 'chuan') {
+    if (!hasJing && wc === 0) return cards.every(c => RED_CHARS.has(c.ch)) ? 8 : 4;
+    const r = _lookupJingHu(cards, 'chuan', isMain);
+    if (r !== null) return r;
+    const base = cards.every(c => RED_CHARS.has(c.ch)) ? 8 : 4;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) bonus += 2;
+      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+    }
+    let hu = base + bonus;
+    if (isMain) hu *= 2;
+    return hu;
+  }
+  if (mtype === 'fan') {
+    if (!hasJing && wc === 0) return cards.every(c => RED_CHARS.has(c.ch)) ? 8 : 4;
+    // 泛牌与穿牌共用chuan查表
+    const r = _lookupJingHu(cards, 'chuan', isMain);
+    if (r !== null) return r;
+    const base = cards.every(c => RED_CHARS.has(c.ch)) ? 8 : 4;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) bonus += 2;
+      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+    }
+    let hu = base + bonus;
+    if (isMain) hu *= 2;
+    return hu;
+  }
+  if (mtype === 'pen') {
+    const first = cards.find(c => !c.isWild);
+    if (!first) return 0;
+    const base = RED_CHARS.has(first.ch) ? 1 : 0;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) bonus += 2;
+      else if (c.isJin) bonus += 1;
+    }
+    return base + bonus;
+  }
+  if (mtype === 'seq') {
+    const charSet = new Set(chars);
+    const isRedSeq = [...RED_SEQ_FROZEN].some(rs => rs.size === charSet.size && [...rs].every(ch => charSet.has(ch)));
+    const base = isRedSeq ? 1 : 0;
+    let bonus = 0;
+    for (const c of cards) {
+      if (c.isWild) { bonus += 2; continue; }
+      if (!c.isJin) continue;
+      let jHu = 0;
+      if (RED_JING.has(c.ch)) jHu = c.v === 'flower' ? 2 : 1;
+      else if (BLACK_JING.has(c.ch)) jHu = c.v === 'flower' ? 1 : 0;
+      if (mainJinChar && c.ch === mainJinChar) jHu *= 2;
+      bonus += jHu;
+    }
+    return base + bonus;
+  }
+  return 0;
+}
+
+function _calcTotalHu(melds, mainJin) {
+  let total = 0;
+  const breakdown = [];
+  for (const m of melds) {
+    const isMain = mainJin && m.cards.some(c => c.ch === mainJin);
+    const hu = _calcMeld(m.cards, m.type, isMain, mainJin);
+    total += hu;
+    breakdown.push({type:m.type, chars:m.cards.map(c=>c.ch).join(''), hu, label:_meldLabel(m.type)});
+  }
+  return {total, breakdown};
+}
+
+function _meldLabel(type) {
+  const m = {pair:'对子(眼)',kou:'口眼(半顺子)',kan:'坎牌',zhao:'招牌',zha:'扎牌',chuan:'穿牌',fan:'泛牌',seq:'顺子',pen:'碰牌'};
+  return m[type] || type;
+}
+
+// ═══════════════════════════════════════════════════
+// 递归拆分（支持赖子通配）
+// ═══════════════════════════════════════════════════
+function _partition(counts, wildList, wildUsed, handCards, melds, depth) {
+  if (depth === undefined) depth = 0;
+  if (depth > 15) return false;
+  const rem = Object.entries(counts).filter(([,v]) => v > 0);
+  const aw = wildUsed.filter(u => !u).length;
+  if (rem.length === 0) return aw === 0;
+  const [ch, cnt] = rem[0];
+
+  function gfw() { for (let i=0;i<wildUsed.length;i++) if(!wildUsed[i]) return i; return null; }
+  function gfws(n) { const r=[]; for(let i=0;i<wildUsed.length;i++){if(!wildUsed[i]){r.push(i);if(r.length===n)break;}} return r.length===n?r:null; }
+  function tc(c,n) { const r=[]; for(const cd of handCards){if(cd.ch===c&&!cd.isWild&&!r.includes(cd)){r.push(cd);if(r.length===n)break;}} return r; }
+
+  // 1. 坎牌(3同字) — 统牌参与时改为碰牌
+  if (cnt >= 3) {
+    const cd = tc(ch, 3);
+    if (cd.length === 3) {
+      counts[ch] -= 3; if(counts[ch]===0) delete counts[ch];
+      const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+      melds.push({type:mtype,chars:[ch,ch,ch],cards:cd});
+      if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1)) return true;
+      melds.pop(); counts[ch] = cnt;
+    }
+  }
+  // 3. 含赖子坎(2普通+1赖) — 统牌参与时改为碰牌
+  if (cnt >= 2 && aw > 0 && WILD_USABLE.has(ch)) {
+    const fi = gfw();
+    if (fi !== null && fi < wildList.length) {
+      const cd = tc(ch, 2);
+      if (cd.length === 2) {
+        wildUsed[fi] = true; counts[ch] -= 2; if(counts[ch]===0) delete counts[ch];
+        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,wildList[fi]]});
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1)) return true;
+        melds.pop(); counts[ch] = cnt; wildUsed[fi] = false;
+      }
+    }
+  }
+  // 4. 纯赖子坎(1普通+2赖) — 统牌参与时改为碰牌
+  if (cnt >= 1 && aw >= 2 && WILD_USABLE.has(ch)) {
+    const fis = gfws(2);
+    if (fis && fis.every(i => i < wildList.length)) {
+      const cd = tc(ch, 1);
+      if (cd.length === 1) {
+        fis.forEach(i => wildUsed[i] = true);
+        counts[ch] -= 1; if(counts[ch]===0) delete counts[ch];
+        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,...fis.map(i=>wildList[i])]});
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1)) return true;
+        melds.pop(); counts[ch] = cnt; fis.forEach(i => wildUsed[i] = false);
+      }
+    }
+  }
+  // 5. 纯顺子（搜索所有rem字关联的顺子，避免贪心遗漏）
+  const seqs5 = new Set((SEQ_BY_CHAR[ch]||[]).map(s=>s.join(',')));
+  for (const och of rem) { if(och===ch) continue; for(const s of(SEQ_BY_CHAR[och]||[])){if(s.includes(ch))seqs5.add(s.join(','));} }
+  for (const seqKey of seqs5) { const seq = seqKey.split(',');
+    if (seq.every(s => (counts[s]||0) > 0)) {
+      const used = new Set(); const cd = []; let ok = true;
+      for (const s of seq) {
+        let found = false;
+        for (const c of handCards) {
+          if (c.ch===s && !c.isWild && !used.has(c)) { cd.push(c); used.add(c); found=true; break; }
+        }
+        if (!found) { ok=false; break; }
+      }
+      if (ok && cd.length===3) {
+        seq.forEach(s => { counts[s]--; if(counts[s]===0) delete counts[s]; });
+        melds.push({type:'seq',chars:[...seq],cards:cd});
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1)) return true;
+        melds.pop();
+        seq.forEach(s => { counts[s] = (counts[s]||0) + 1; });
+      }
+    }
+  }
+  // 6. 含赖子顺子（搜索所有rem字关联的顺子）
+  if (aw > 0) {
+    const fi = gfw();
+    if (fi !== null && fi < wildList.length) {
+      const seqs6 = new Set((SEQ_BY_CHAR[ch]||[]).map(s=>s.join(',')));
+      for (const och of rem) { if(och===ch) continue; for(const s of(SEQ_BY_CHAR[och]||[])){if(s.includes(ch))seqs6.add(s.join(','));} }
+      for (const seqKey of seqs6) { const seq = seqKey.split(',');
+        const avail = seq.reduce((s,x) => s + (counts[x]||0), 0);
+        if (avail === 2) {
+          for (let gi = 0; gi < 3; gi++) {
+            const gapCh = seq[gi];
+            if ((counts[gapCh]||0) === 0 && WILD_USABLE.has(gapCh)) {
+              const used = new Set(); const cd = []; let ok = true;
+              for (let i = 0; i < 3; i++) {
+                if (i === gi) { cd.push(wildList[fi]); continue; }
+                const sc = seq[i];
+                let found = false;
+                for (const c of handCards) {
+                  if (c.ch===sc && !c.isWild && !used.has(c)) { cd.push(c); used.add(c); found=true; break; }
+                }
+                if (!found) { ok=false; break; }
+              }
+              if (ok && cd.length===3) {
+                wildUsed[fi] = true;
+                seq.forEach((sc,i) => { if(i!==gi){counts[sc]--;if(counts[sc]===0)delete counts[sc];} });
+                melds.push({type:'seq',chars:[...seq],cards:cd});
+                if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1)) return true;
+                melds.pop();
+                seq.forEach((sc,i) => { if(i!==gi){counts[sc]=(counts[sc]||0)+1;} });
+                wildUsed[fi] = false;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════
+// 完整胡牌分析（支持对子眼+口眼+赖子眼+预成型melds）
+// ═══════════════════════════════════════════════════
+function analyzeHand(cards, preMelds) {
+  if (!cards || cards.length < 2) return null;
+  if (!preMelds) preMelds = [];
+  const totalAll = cards.length + preMelds.reduce((s,m) => s + m.cards.length, 0);
+  if (totalAll < 5) return null;
+
+  const wildCards = cards.filter(c => c.isWild);
+  const normalCards = cards.filter(c => !c.isWild);
+  const cc = {};
+  for (const c of normalCards) cc[c.ch] = (cc[c.ch]||0) + 1;
+
+  let best = null;
+
+  function tryRes(melds) {
+    const am = [...preMelds, ...melds];
+    const aj = new Set();
+    for (const m of am) for (const c of m.cards) if (RED_JING.has(c.ch)) aj.add(c.ch);
+    const mjs = [null, ...aj];
+    for (const mj of mjs) {
+      const {total} = _calcTotalHu(am, mj);
+      if (total >= MIN_HU && (!best || total > best.totalHu)) {
+        best = {
+          isWin:true, totalHu:total, melds:am, mainJin:mj,
+          eyeType:melds[0].type, eyeChars:melds[0].cards.map(c=>c.ch)
+        };
+      }
+    }
+  }
+
+  function tc(ch, n, excludeSet) {
+    const r = [];
+    for (const c of normalCards) {
+      if (c.ch===ch && !c.isWild && !r.includes(c) && (!excludeSet || !excludeSet.has(c))) {
+        r.push(c); if(r.length===n) break;
+      }
+    }
+    return r;
+  }
+
+  // 生成所有可能的"眼"候选（用于单眼和两眼枚举）
+  function enumEyeCandidates(cc, wildCards) {
+    const eyes = []; // {removed:{ch:n,...}, wildUsed:n, cards:[], type:'pair'|'kou'}
+    // 对子眼
+    for (const ch in cc) {
+      if (cc[ch] >= 2) eyes.push({removed:{[ch]:2}, wildUsed:0, cards:tc(ch,2), type:'pair'});
+    }
+    // 赖子+普通牌对子（赖子只能通配三五七）
+    if (wildCards.length > 0) {
+      for (const ch in cc) {
+        if (!WILD_USABLE.has(ch)) continue;
+        if (cc[ch] >= 1) eyes.push({removed:{[ch]:1}, wildUsed:1, cards:[...tc(ch,1), wildCards[0]], type:'pair'});
+      }
+      // 纯赖子对子(赖赖)不合法：赖子只能当三五七，赖赖不是合法对子
+    }
+    // 口眼
+    for (const [ch1, ch2] of ALL_KOU_LIST) {
+      const ks = new Set([ch1, ch2]);
+      const can = ALL_SEQS.some(seq => {
+        const ss = new Set(seq);
+        return ss.size === 3 && [...seq].filter(x => !ks.has(x)).length === 1;
+      });
+      if (!can) continue;
+      if (ch1 === ch2) {
+        if ((cc[ch1]||0) >= 2) eyes.push({removed:{[ch1]:2}, wildUsed:0, cards:tc(ch1,2), type:'kou'});
+      } else {
+        if ((cc[ch1]||0) >= 1 && (cc[ch2]||0) >= 1)
+          eyes.push({removed:{[ch1]:1,[ch2]:1}, wildUsed:0, cards:[...tc(ch1,1), ...tc(ch2,1)], type:'kou'});
+      }
+    }
+    // 赖子口眼
+    if (wildCards.length > 0) {
+      for (const wch of WILD_USABLE) {
+        for (const ch in cc) {
+          const ks = new Set([ch, wch]);
+          const can = ALL_SEQS.some(seq => {
+            const ss = new Set(seq);
+            return ss.size === 3 && [...seq].filter(x => !ks.has(x)).length === 1;
+          });
+          if (can) eyes.push({removed:{[ch]:1}, wildUsed:1, cards:[...tc(ch,1), wildCards[0]], type:'kou'});
+        }
+      }
+    }
+    return eyes;
+  }
+
+  // 单眼尝试（原逻辑）
+  function trySingleEye(eye) {
+    const cnt = Object.assign({}, cc);
+    for (const [ch, n] of Object.entries(eye.removed)) {
+      cnt[ch] -= n;
+      if (cnt[ch] === 0) delete cnt[ch];
+    }
+    if (eye.wildUsed > wildCards.length) return;
+    const wu = Array(eye.wildUsed).fill(true).concat(Array(wildCards.length - eye.wildUsed).fill(false));
+    const wcRem = wildCards.slice(eye.wildUsed);
+    const usedSet = new Set(eye.cards);
+    const melds = [{type:eye.type, chars:eye.cards.map(c=>c.ch), cards:eye.cards}];
+    if (_partition(cnt, wcRem, wu, normalCards, melds)) tryRes(melds);
+  }
+
+  // 两眼尝试（7+2两听）
+  function tryTwoEyes(eye1, eye2) {
+    // 合并两个眼的消耗
+    const removed = Object.assign({}, eye1.removed);
+    for (const [ch, n] of Object.entries(eye2.removed)) {
+      removed[ch] = (removed[ch]||0) + n;
+    }
+    // 检查消耗是否合法（不超过cc中的数量）
+    for (const [ch, n] of Object.entries(removed)) {
+      if ((cc[ch]||0) < n) return;
+    }
+    const totalWildUsed = eye1.wildUsed + eye2.wildUsed;
+    if (totalWildUsed > wildCards.length) return;
+    // 检查第二眼的cards是否与第一眼重叠
+    const usedSet = new Set(eye1.cards);
+    const eye2Cards = [];
+    for (const c of eye2.cards) {
+      if (usedSet.has(c)) return; // 重叠，跳过
+      eye2Cards.push(c);
+    }
+    const cnt = Object.assign({}, cc);
+    for (const [ch, n] of Object.entries(removed)) {
+      cnt[ch] -= n;
+      if (cnt[ch] === 0) delete cnt[ch];
+    }
+    const wu = Array(totalWildUsed).fill(true).concat(Array(wildCards.length - totalWildUsed).fill(false));
+    const wcRem = wildCards.slice(totalWildUsed);
+    const allUsedSet = new Set([...eye1.cards, ...eye2Cards]);
+    const melds = [
+      {type:eye1.type, chars:eye1.cards.map(c=>c.ch), cards:eye1.cards},
+      {type:eye2.type, chars:eye2Cards.map(c=>c.ch), cards:eye2Cards}
+    ];
+    if (_partition(cnt, wcRem, wu, normalCards, melds)) tryRes(melds);
+  }
+
+  // 枚举所有眼组合
+  const eyeCandidates = enumEyeCandidates(cc, wildCards);
+  // 对子眼候选（用于两听7+2）
+  const pairEyes = eyeCandidates.filter(e => e.type === 'pair');
+  // 单眼（8+1摞听）：对子眼和口眼都可以
+  for (const eye of eyeCandidates) trySingleEye(eye);
+  // 两眼（7+2两听）：只使用对子眼，口眼只用于摞听
+  for (let i = 0; i < pairEyes.length; i++) {
+    for (let j = i + 1; j < pairEyes.length; j++) {
+      tryTwoEyes(pairEyes[i], pairEyes[j]);
+    }
+  }
+
+  return best;
+}
+
+// 胡数→得分对照表（每5胡一档）
+// 档位0=17-21, 档位1=22-26, 档位2=27-31, ...
+function _huTier(hu) {
+  if (hu < 17) return -1;
+  return Math.floor((hu - 17) / 5);
+}
+function calcPoints(hu) {
+  const tier = _huTier(hu);
+  if (tier < 0) return 0;
+  return 3 + tier;  // 基础分：3, 4, 5, ...
+}
+// 捉统/自摸完整奖惩
+function calcScoreDetail(hu, winType, winnerIdx) {
+  const tier = _huTier(hu);
+  if (tier < 0) return null;
+  // 未放统旁家减分(每人)、放统旁家减分、捉统得分、自摸得分
+  const scores = {
+    noPenLoss: 2 + tier,     // 未放统旁家每人减分
+    penLoss: 3 + tier,       // 放统旁家减分
+    zhuoTongGain: 5 + tier * 2,  // 捉统赢家得分
+    ziMoGain: 6 + tier * 2       // 自摸赢家得分
+  };
+  return scores;
+}
+
+// ═══════════════════════════════════════════════════
+// 庄家胡牌检测（分离预成型melds）
+// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════
+// 听牌检测：枚举所有字面，模拟摸牌检查能否胡
+// ═══════════════════════════════════════
+function calcTingChars() {
+  // ═══ 收集预成型melds（与 checkDealerSelfHu 完全一致） ═══
+  const preMelds = [];
+  // 注意: dealerZha时已从handCards移除了扎牌的4张牌，无需再排除
+  G.dealerMelds.forEach(m => {
+    if (m.inHand) {
+      const cards = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      const actualChars = cards.map(c => c.ch);
+      preMelds.push({type: 'zha', chars: actualChars, cards: cards.slice(0, 4)});
+    } else {
+      const cards = m.cards || Array.from({length: m.count}, () => makeCardData(m.char));
+      preMelds.push({type: m.type || 'pen', chars: Array(m.count).fill(m.char), cards});
+    }
+  });
+
+  // ═══ 自由手牌（扎牌时已从handCards移除，无需再排除） ═══
+  const allCards = [...handCards];
+  if (G.drawnCard) allCards.push(G.drawnCard);
+
+  const freeCount = allCards.length;
+  const preCount = preMelds.reduce((s,m) => s + m.cards.length, 0);
+  console.log('[听牌检测] 自由手牌:', freeCount, '预成型牌:', preCount, '总计:', freeCount + preCount,
+    'preMelds:', preMelds.map(m => m.type + '(' + m.chars.join('') + ')').join(', '));
+  console.log('[听牌检测] 手牌字面:', allCards.map(c => c.ch).join(''));
+
+  // ═══ 统计余牌中每字的可见剩余数量 ═══
+  const totalPerChar = {};
+  // 每种字总共有5张（精牌3皮2花，非精5皮），赖子2张
+  const JING_SET = new Set('三五七乙九');
+  for (const ch of '上大人可知礼化三千孔乙己二四五六七八九子十土赖') {
+    totalPerChar[ch] = JING_SET.has(ch) ? 5 : 5; // 统一5张
+  }
+  totalPerChar['赖'] = 2;
+
+  // 减去已知的牌
+  function subtractCards(cards) {
+    for (const c of cards) {
+      const ch = (typeof c === 'string') ? c : c.ch;
+      if (totalPerChar[ch] !== undefined) totalPerChar[ch]--;
+    }
+  }
+  // 自由手牌 + 暂存牌
+  subtractCards(allCards);
+  // 预成型中的牌
+  for (const m of preMelds) subtractCards(m.cards);
+  // 旁家手牌（不可见但也不在余牌中）
+  for (let pi = 1; pi <= 2; pi++) subtractCards(opponentHands[pi] || []);
+  // 旁家明牌
+  for (let pi = 1; pi <= 2; pi++) {
+    for (const m of (opponentMelds[pi] || [])) subtractCards(m.cards);
+  }
+  // 弃牌池
+  document.querySelectorAll('#discard-pool .card').forEach(el => {
+    const ch = el.dataset.ch;
+    if (ch && totalPerChar[ch] !== undefined) totalPerChar[ch]--;
+  });
+
+  // ═══ 枚举所有字面，模拟摸牌 ═══
+  const ALL_CHARS = '上大人可知礼化三千孔乙己二四五六七八九子十土'.split('');
+  const tingSet = [];
+
+  for (const ch of ALL_CHARS) {
+    const card = makeCardData(ch);
+    const simCards = [...allCards, card];
+    const result = analyzeHand(simCards, preMelds);
+    if (result && result.totalHu >= MIN_HU) {
+      const remaining = Math.max(0, totalPerChar[ch] || 0);
+      console.log('[听牌] ✓ 可胡:', ch, '胡数:', result.totalHu, '余量:', remaining);
+      tingSet.push({ ch, totalHu: result.totalHu, remaining });
+    }
+  }
+  // 赖子（不在ALL_CHARS中，单独处理）
+  const wildCard = makeCardData(WILD_CHAR);
+  const simWild = [...allCards, wildCard];
+  const wildResult = analyzeHand(simWild, preMelds);
+  if (wildResult && wildResult.totalHu >= MIN_HU) {
+    const remaining = Math.max(0, totalPerChar[WILD_CHAR] || 0);
+    console.log('[听牌] ✓ 可胡:', WILD_CHAR, '胡数:', wildResult.totalHu, '余量:', remaining);
+    tingSet.push({ ch: WILD_CHAR, totalHu: wildResult.totalHu, remaining });
+  }
+
+  if (tingSet.length === 0) console.log('[听牌] 未处于听牌状态');
+  return tingSet;
+}
+
+
+function updateTingHint() {
+  const el = document.getElementById('ting-hint');
+  if (!el) return;
+  if (G.gameOver || G.locked) {
+    el.style.display = 'none';
+    return;
+  }
+  const tingChars = calcTingChars();
+  if (tingChars.length === 0) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  tingChars.sort((a, b) => SORT_ORDER.indexOf(a.ch) - SORT_ORDER.indexOf(b.ch));
+  let html = '<span style="margin-right:8px;color:#ffd700;font-size:13px;">听牌:</span>';
+  for (const t of tingChars) {
+    const cls = RED_CHARS.has(t.ch) ? 'red' : 'black';
+    const remain = t.remaining > 0 ? '<sub style="font-size:10px;color:#aaa;">(' + t.remaining + ')</sub>' : '<sub style="font-size:10px;color:#666;">(0)</sub>';
+    html += '<span class="ting-char ' + cls + '">' + t.ch + remain + '</span>';
+  }
+  el.innerHTML = html;
+}
+
+
+function checkDealerSelfHu() {
+  // 收集预成型melds（碰牌/招牌/穿牌/泛牌/扎牌）
+  const preMelds = [];
+  // 注意: dealerZha时已从handCards移除了扎牌的4张牌，无需再排除
+  G.dealerMelds.forEach(m => {
+    if (m.inHand) {
+      const cards = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      const actualChars = cards.map(c => c.ch);
+      preMelds.push({type: 'zha', chars: actualChars, cards: cards.slice(0, 4)});
+    } else {
+      const cards = m.cards || Array.from({length: m.count}, () => makeCardData(m.char));
+      preMelds.push({type: m.type || 'pen', chars: Array(m.count).fill(m.char), cards});
+    }
+  });
+
+  // 手牌 + 摸到的牌（扎牌时已从handCards移除，直接使用）
+  const allCards = [...handCards];
+  if (G.drawnCard) allCards.push(G.drawnCard);
+
+  const result = analyzeHand(allCards, preMelds);
+  if (result) {
+    const huResult = _calcTotalHu(result.melds, result.mainJin);
+    return { ...result, totalHu: huResult.total, breakdown: huResult.breakdown };
+  }
+  return null;
+}
+
+// ── 庄家胡牌操作 ──
+function dealerHu() {
+  console.log('[流程] 庄家胡牌!');
+  actionsDealer.classList.remove('show');
+  document.getElementById('btn-hu').style.display = 'none';
+  document.getElementById('btn-zhao').style.display = 'none';
+  document.getElementById('btn-zha').style.display = 'none';
+
+  const winResult = checkDealerSelfHu();
+  if (!winResult) {
+    console.log('[错误] 庄家胡牌检测失败');
+    return;
+  }
+
+  G.gameOver = true;
+  lockHand();
+  setPhase('庄家胡牌!');
+
+  // 高亮手牌
+  highlightWinCards(winResult.melds);
+
+  setTimeout(() => {
+    showSettlePanel(0, winResult, '自摸');
+  }, 800);
+}
+
+// ── 旁家胡牌检测 ──
+function checkOpponentHu(playerIdx) {
+  const hand = opponentHands[playerIdx];
+  if (hand.length === 0) return false;
+  // AI旁家简化检测：纯随机模拟（低概率触发）
+  // 后续可接入完整analyzer
+  const chars = {};
+  hand.forEach(ch => { chars[ch] = (chars[ch]||0)+1; });
+  // 检查是否有大量相同字面（暗示可能的坎/招）
+  let triplets = 0;
+  Object.values(chars).forEach(cnt => { if(cnt>=3) triplets++; });
+  // 简化：如果手牌≤8张且有2+组坎，概率胡牌
+  if (hand.length <= 8 && triplets >= 2 && Math.random() < 0.15) {
+    return true;
+  }
+  return false;
+}
+
+// ── 高亮胡牌组合 ──
+function highlightWinCards(melds) {
+  cardEls.forEach(el => el.classList.remove('win-highlight'));
+  // 匹配melds到cardEls（按字面匹配）
+  const used = new Set();
+  melds.forEach(m => {
+    if (m.type === 'pen') return; // 碰牌在明牌区
+    m.chars.forEach(ch => {
+      for (let i = 0; i < cardEls.length; i++) {
+        if (!used.has(i) && cardEls[i].dataset.ch === ch) {
+          used.add(i);
+          cardEls[i].classList.add('win-highlight', 'meld-' + m.type);
+          break;
+        }
+      }
+    });
+  });
+}
+
+// ── 显示结算面板 ──
+function _huDetailHtml(winType) {
+  if (winType === '捉统') {
+    var tongChar = G.lastPlayedChar || '';
+    var fromPlayer = G.lastPlayedFrom;
+    var fromName = fromPlayer >= 0 && fromPlayer <= 2 ? NAMES[fromPlayer] : '旁家';
+    var charColor = tongChar ? (RED_CHARS.has(tongChar) ? 'red' : 'black') : '';
+    return '  胡<span class="' + charColor + '" style="font-weight:bold;margin:0 4px;">' + tongChar + '</span>  ' + fromName + '放统';
+  } else if (winType === '自摸') {
+    var drawnCh = G.drawnCard ? G.drawnCard.ch : '';
+    if (drawnCh) {
+      var cc = drawnCh ? (RED_CHARS.has(drawnCh) ? 'red' : 'black') : '';
+      return '  摸<span class="' + cc + '" style="font-weight:bold;margin:0 4px;">' + drawnCh + '</span>';
+    }
+  }
+  return '';
+}
+
+
+/* ═══════════════════════════════════════════════════
+   工具栏功能
+   ═══════════════════════════════════════════════════ */
+
+// ── 全局统计 ──
+var _gameStats = {
+  totalGames: 0,       // 总局数
+  wins: 0,            // 庄家赢局数
+  losses: 0,          // 庄家输局数
+  draws: 0,           // 流局数
+  totalScore: 0,      // 庄家总盈亏
+  records: [],        // 每局记录 [{gameNo, result, score, hu, winType, winner}]
+  lastSettleHtml: ''  // 最近一次结算HTML
+};
+
+// ── 1. 查听牌 ──
+function showTingPopup() {
+  if (G.gameOver) { _showPopup('查听牌', '<div class="no-settle-msg">本局已结束</div>'); return; }
+  const tingResult = detectTing();
+  if (!tingResult || !tingResult.tingChars || tingResult.tingChars.length === 0) {
+    _showPopup('查听牌', '<div class="no-settle-msg">当前未听牌</div>');
+    return;
+  }
+  // 按胡数从高到低排序
+  const sorted = [...tingResult.tingChars].sort((a, b) => (b.hu || b.totalHu) - (a.hu || a.totalHu));
+  let charsHtml = '<div class="ting-popup-type">' + (tingResult.tingType || '听牌') + ' — 听 ' + sorted.length + ' 种牌</div>';
+  charsHtml += '<div class="ting-popup-chars">';
+  sorted.forEach(t => {
+    const ch = t.ch;
+    const hu = t.hu || t.totalHu || 0;
+    const rem = t.remaining !== undefined ? t.remaining : '?';
+    const colorClass = (ch === '赖') ? 'gold' : (RED_CHARS.has(ch) ? 'red' : 'black');
+    const remClass = rem === 0 ? 'zero' : 'has';
+    charsHtml += '<div class="ting-popup-item">' +
+      '<span class="ting-popup-ch ' + colorClass + '">' + ch + '</span>' +
+      '<span class="ting-popup-hu">' + hu + '胡</span>' +
+      '<span class="ting-popup-rem ' + remClass + '">余' + rem + '</span>' +
+      '</div>';
+  });
+  charsHtml += '</div>';
+  _showPopup('查听牌', charsHtml);
+}
+
+// ── 2. 查结算(最近一次胡牌结算表) ──
+function showSettleHistory() {
+  if (!_gameStats.lastSettleHtml) {
+    _showPopup('查结算', '<div class="no-settle-msg">暂无结算记录</div>');
+    return;
+  }
+  _showPopup('查结算', _gameStats.lastSettleHtml);
+}
+
+// ── 3. 战绩统计 ──
+function showRecordPopup() {
+  let html = '';
+  if (_gameStats.records.length === 0) {
+    html = '<div class="no-settle-msg">暂无对局记录</div>';
+  } else {
+    html += '<table class="record-table"><thead><tr>' +
+      '<th>局</th><th>结果</th><th>胡数</th><th>方式</th><th>赢家</th><th>庄家分</th></tr></thead><tbody>';
+    _gameStats.records.forEach(r => {
+      const cls = r.score > 0 ? 'win' : (r.score < 0 ? 'lose' : '');
+      const scoreText = r.score > 0 ? ('+' + r.score) : String(r.score);
+      html += '<tr>' +
+        '<td>' + r.gameNo + '</td>' +
+        '<td class="' + cls + '">' + r.result + '</td>' +
+        '<td>' + (r.hu || '-') + '</td>' +
+        '<td>' + (r.winType || '-') + '</td>' +
+        '<td>' + (r.winner || '-') + '</td>' +
+        '<td class="' + cls + '">' + scoreText + '</td></tr>';
+    });
+    html += '</tbody></table>';
+  }
+  // 汇总
+  const totalWin = _gameStats.totalScore;
+  const totalCls = totalWin > 0 ? 'total-win' : (totalWin < 0 ? 'total-lose' : 'total-even');
+  const totalText = totalWin > 0 ? ('+' + totalWin) : String(totalWin);
+  html += '<div class="record-summary">' +
+    '<div>共 <strong>' + _gameStats.totalGames + '</strong> 局</div>' +
+    '<div style="margin-top:6px;">' +
+    '<span style="color:#4ade80;">胜 ' + _gameStats.wins + '</span> &nbsp; ' +
+    '<span style="color:#f87171;">负 ' + _gameStats.losses + '</span> &nbsp; ' +
+    '<span style="color:#9ca3af;">流 ' + _gameStats.draws + '</span>' +
+    '</div>' +
+    '<div style="margin-top:8px;">庄家总盈亏: <span class="' + totalCls + '">' + totalText + ' 分</span></div>' +
+    '</div>';
+  _showPopup('战绩统计', html);
+}
+
+// ── 4. 快捷发言 ──
+var _chatMessages = [
+  '快点吧，等到花儿都谢了！',
+  '不好意思，手慢了',
+  '今天手气不错啊',
+  '你这是要胡大牌的节奏',
+  '哈哈，这牌太绝了',
+  '别急，慢慢来',
+  '承让承让',
+  '再来再来！',
+  '这把稳了',
+  '我怎么感觉你在放水',
+];
+function showChatPopup() {
+  let html = '<div class="chat-grid">';
+  _chatMessages.forEach(msg => {
+    html += '<div class="chat-item" onclick="sendChat(this.textContent)">' + msg + '</div>';
+  });
+  html += '</div>';
+  _showPopup('快捷发言', html);
+}
+function sendChat(msg) {
+  // 关闭弹窗
+  var overlay = document.querySelector('.popup-overlay');
+  if (overlay) overlay.remove();
+  // 显示气泡
+  var bubble = document.createElement('div');
+  bubble.className = 'chat-bubble';
+  bubble.textContent = msg;
+  // 位置：庄家手牌区域中央上方
+  var handZone = document.getElementById('hand-zone');
+  if (handZone) {
+    var rect = handZone.getBoundingClientRect();
+    bubble.style.left = (rect.left + rect.width / 2 - 80) + 'px';
+    bubble.style.top = (rect.top - 50) + 'px';
+  } else {
+    bubble.style.left = '35%';
+    bubble.style.top = '55%';
+  }
+  document.body.appendChild(bubble);
+  setTimeout(function() { if (bubble.parentNode) bubble.remove(); }, 2600);
+  // 记录到日志
+  addLog(NAMES[0], '说', msg);
+}
+
+// ── 通用弹窗 ──
+function _showPopup(title, bodyHtml) {
+  // 移除已有弹窗
+  var old = document.querySelector('.popup-overlay');
+  if (old) old.remove();
+  var overlay = document.createElement('div');
+  overlay.className = 'popup-overlay';
+  overlay.innerHTML = '<div class="popup-panel" onclick="event.stopPropagation()">' +
+    '<div class="popup-title">' + title + '</div>' +
+    bodyHtml +
+    '<button class="popup-close" onclick="this.closest(\'.popup-overlay\').remove()">关闭</button>' +
+    '</div>';
+  overlay.addEventListener('click', function() { this.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function showSettlePanel(winnerIdx, winResult, winType) {
+  const container = document.getElementById('settle-container');
+  const name = NAMES[winnerIdx];
+  const points = calcPoints(winResult.totalHu);
+
+  let meldsHtml = '';
+  winResult.melds.forEach(m => {
+    const cardsHtml = (m.cards || m.chars.map(ch => makeCardData(ch))).map(c => {
+      const color = charColor(c.ch);
+      const wildClass = c.isWild ? ' wild-in-meld' : '';
+      const flowerClass = c.v === 'flower' ? ' mini-flower' : '';
+      return '<span class="mini-card ' + color + wildClass + flowerClass + '">' + c.ch + '</span>';
+    }).join('');
+    meldsHtml += '<div class="settle-meld-group">' +
+      '<div class="settle-meld-label">' + _meldLabel(m.type) + '</div>' +
+      cardsHtml + '</div>';
+  });
+
+  let breakdownHtml = '';
+  if (winResult.breakdown) {
+    winResult.breakdown.forEach(b => {
+      breakdownHtml += '<div class="settle-hu-row">' +
+        '<span class="hu-label">' + b.label + ' (' + b.chars + ')</span>' +
+        '<span class="hu-val">+' + b.hu + '胡</span></div>';
+    });
+  }
+
+  // 计算奖惩明细
+  const sd = calcScoreDetail(winResult.totalHu, winType, winnerIdx);
+  let scoreHtml = '';
+  if (sd) {
+    scoreHtml = '<div class="settle-score-detail">';
+    if (winType === '自摸') {
+      scoreHtml += '<div class="score-row winner">' + name + '（自摸）+' + sd.ziMoGain + '分</div>';
+      for (var si = 1; si <= 2; si++) {
+        scoreHtml += '<div class="score-row loser">' + NAMES[si] + ' -' + sd.noPenLoss + '分</div>';
+      }
+    } else {
+      // 捉统：放统者额外惩罚
+      var penPlayer = G.lastPlayedFrom;
+      var penName = penPlayer >= 0 && penPlayer <= 2 ? NAMES[penPlayer] : '旁家';
+      scoreHtml += '<div class="score-row winner">' + name + '（捉统）+' + sd.zhuoTongGain + '分</div>';
+      scoreHtml += '<div class="score-row loser">' + penName + '（放统）-' + sd.penLoss + '分</div>';
+      for (var si = 1; si <= 2; si++) {
+        if (si !== penPlayer) {
+          scoreHtml += '<div class="score-row loser">' + NAMES[si] + ' -' + sd.noPenLoss + '分</div>';
+        }
+      }
+    }
+    scoreHtml += '</div>';
+  }
+
+  // 保存结算HTML(用于工具栏查看)
+  var settleContent = '<div class="settle-title">胡 牌</div>' +
+    '<div class="settle-winner">' + name + ' ' + winType + _huDetailHtml(winType) + '</div>' +
+    '<div class="settle-melds">' + meldsHtml + '</div>' +
+    '<div class="settle-hu-breakdown">' + breakdownHtml + '</div>' +
+    '<div class="settle-total">' + winResult.totalHu + '胡 = ' + points + '分</div>' +
+    scoreHtml;
+  _gameStats.lastSettleHtml = settleContent;
+
+  // 更新统计
+  _gameStats.totalGames++;
+  var dealerScore = 0;
+  if (winnerIdx === 0) {
+    _gameStats.wins++;
+    dealerScore = (winType === '自摸') ? (sd ? sd.ziMoGain : 0) : (sd ? sd.zhuoTongGain : 0);
+  } else {
+    _gameStats.losses++;
+    dealerScore = -((winType === '自摸') ? (sd ? sd.noPenLoss : 2) : (sd ? sd.noPenLoss : 2));
+    if (G.lastPlayedFrom === 0) {
+      dealerScore = -(sd ? sd.penLoss : 3);
+    }
+  }
+  _gameStats.totalScore += dealerScore;
+  _gameStats.records.push({
+    gameNo: _gameStats.totalGames,
+    result: winnerIdx === 0 ? '胜' : '负',
+    hu: winResult.totalHu,
+    winType: winType,
+    winner: name,
+    score: dealerScore
+  });
+
+  container.innerHTML = '<div class="settle-overlay" onclick="this.remove()">' +
+    '<div class="settle-panel" onclick="event.stopPropagation()">' +
+    settleContent +
+    '<button class="settle-restart-btn" onclick="closeSettle(); restartGame();">再来一局</button>' +
+    '</div></div>';
+}
+
+function closeSettle() {
+  document.getElementById('settle-container').innerHTML = '';
+}
+
+// ── 在关键节点插入胡牌检测 ──
+
+// 覆盖 passToNext：庄家摸牌后检测自摸
+const _origPassToNext = passToNext;
+passToNext = function(fromIdx) {
+  console.log("[流程] passToNext, from=" + fromIdx + ", deckCount=" + G.deckCount);
+  if (G.gameOver) return;
+  const next = (fromIdx + 1) % 3;
+
+  if (next === 0) {
+    if (G.deckCount <= 0) { endGame(); return; }
+    const drawnCh = G.deck.pop();
+    G.deckCount--;
+    const data = parseDeckCard(drawnCh);
+
+    addLog(NAMES[0], '摸牌', drawnCh.indexOf(':')>=0 ? drawnCh.substring(0,drawnCh.indexOf(':')) : drawnCh);
+    setPhase('庄家摸牌中');
+
+    animateDealerDraw(data, () => {
+      // ★ 庄家重新获得操作权，清除过牌记录
+      G._skippedOps = {};
+      // 摸牌后检测自摸和扎牌（同时检测，均满足时都给按钮）
+      if (checkDealerZhaAndHu()) return;
+
+      setPhase('庄家出牌');
+      G.phase = 'play';
+      unlockHand();
+      updateUI();
+    });
+  } else {
+    if (G.deckCount <= 0) { endGame(); return; }
+    setPhase(NAMES[next] + '摸牌出牌中');
+    setTimeout(() => opponentAutoPlay(next), 800);
+  }
+};
+
+// 覆盖 checkResponseAfterOpponent：检测庄家胡
+const _origCheckResponse = checkResponseAfterOpponent;
+checkResponseAfterOpponent = function(fromIdx) {
+  console.log("[流程] checkResponseAfterOpponent, from=" + fromIdx + ", char=" + G.lastPlayedChar);
+  const ch = G.lastPlayedChar;
+  // 旁家操作期间，允许玩家拖拽手牌整理
+  lockHandForOpponent();
+
+  // 0. 检查庄家是否可胡（捉统/吃牌胡）
+  var canHu = false;
+  const testCards = [...handCards];
+  if (G.drawnCard) testCards.push(G.drawnCard);
+  testCards.push(Object.assign(makeCardData(ch), {isTongCard: true}));
+  // 构建预组牌（已有碰/招/扎/穿/泛），inHand扎牌作为zha计入preMelds并排除锁定牌
+  const dealerPreMelds = [];
+  (G.dealerMelds || []).forEach(m => {
+    if (m.inHand) {
+      const cd = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      const actualChars = cd.map(c => c.ch);
+      dealerPreMelds.push({type: 'zha', chars: actualChars, cards: cd.slice(0, 4)});
+    } else {
+      const cd = m.cards || Array.from({length: m.count}, () => makeCardData(m.char));
+      dealerPreMelds.push({type: m.type || 'pen', chars: Array(m.count).fill(m.char), cards: cd});
+    }
+  });
+  const filteredTestCards = testCards;
+
+  // ★ 自由拆分（统牌已标记isTongCard，_partition会将含统牌的坎牌自动转为碰牌）
+  const huResult = analyzeHand(filteredTestCards, dealerPreMelds);
+  if (huResult) {
+    const huDetail = _calcTotalHu(huResult.melds, huResult.mainJin);
+    huResult.totalHu = huDetail.total;
+    huResult.breakdown = huDetail.breakdown;
+    console.log('[流程] 庄家可胡牌! ' + huDetail.total + '胡');
+    G._pendingWin = { ...huResult, winType: '捉统' };
+    canHu = true;
+  }
+
+  // 1. 检查庄家是否可碰或可招
+  const dealerCount = handCards.filter(c => c.ch === ch).length;
+  const drawnMatch = G.drawnCard && G.drawnCard.ch === ch ? 1 : 0;
+  const totalCount = dealerCount + drawnMatch;
+  var canZhao = totalCount >= 3;
+  var canPen = totalCount >= 2;
+
+  // ★ 限两对：胡牌前最多两次碰牌机会
+  var penCount = G.dealerMelds ? G.dealerMelds.filter(m => m.type === 'pen').length : 0;
+  if (canPen && penCount >= 2) canPen = false;
+
+  // ★ 检查过牌记录，丧失已放弃的操作权
+  if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
+  if (canZhao && G._skippedOps['zhao_' + ch]) canZhao = false;
+  if (canHu && G._skippedOps['hu']) canHu = false;
+  
+  // 统一显示所有可用按钮（扣除已过牌的操作）
+      hideTingPanel();
+  if (canHu || canZhao || canPen) {
+    setPhase(canHu ? '庄家可胡牌' : (canZhao ? '等待你碰/招牌' : '等待你碰牌'));
+    actionsDealer.classList.add('show');
+    document.getElementById('btn-hu').style.display = canHu ? '' : 'none';
+    document.getElementById('btn-fan').style.display = 'none';
+    document.getElementById('btn-chuan').style.display = 'none';
+    document.getElementById('btn-zhao').style.display = canZhao ? '' : 'none';
+    document.getElementById('btn-pen').style.display = canPen ? '' : 'none';
+    document.getElementById('btn-pass').style.display = '';
+    document.getElementById('btn-zha').style.display = 'none';
+    return;
+  }
+
+  // 2. 检查另一个旁家
+  const otherPlayers = [1, 2].filter(p => p !== fromIdx);
+  for (const pi of otherPlayers) {
+    const count = opponentHands[pi].filter(c => c === ch).length;
+    var hasZha = false;
+    for (var mi = 0; mi < opponentMelds[pi].length; mi++) {
+      if (opponentMelds[pi][mi].type === 'zha' && opponentMelds[pi][mi].cards[0] === ch) {
+        hasZha = true; break;
+      }
+    }
+    if (count >= 2) {
+      if (hasZha) {
+        addLog(NAMES[pi], '泛', ch);
+        opponentFan(pi, ch);
+        return;
+      }
+      addLog(NAMES[pi], '碰', ch);
+      setPhase(NAMES[pi] + '碰牌中');
+      setTimeout(() => opponentPen(pi, ch), 800);
+      return;
+    }
+  }
+
+  // 3. 都不碰 → 流转
+  setTimeout(() => passToNext(fromIdx), 400);
+};
+
+// 修改dealerHu支持捉统
+dealerHu = function() {
+  console.log('[流程] 庄家胡牌!');
+  actionsDealer.classList.remove('show');
+  document.getElementById('btn-hu').style.display = 'none';
+  document.getElementById('btn-zhao').style.display = 'none';
+  document.getElementById('btn-zha').style.display = 'none';
+
+  let winResult;
+  let winType = '自摸';
+
+  if (G._pendingWin) {
+    // 捉统（旁家出牌胡）
+    winResult = G._pendingWin;
+    winType = winResult.winType;
+    G._pendingWin = null;
+    // 吃牌：把旁家出的牌加入手牌
+    const ch = G.lastPlayedChar;
+    handCards.push(makeCardData(ch));
+    const lastDiscard = discardPool.lastElementChild;
+    if (lastDiscard) lastDiscard.remove();
+  } else {
+    // 自摸
+    winResult = checkDealerSelfHu();
+    if (!winResult) {
+      console.log('[错误] 庄家胡牌检测失败');
+      return;
+    }
+  }
+
+  G.gameOver = true;
+  lockHand();
+  setPhase('庄家胡牌!');
+
+  highlightWinCards(winResult.melds);
+
+  setTimeout(() => {
+    showSettlePanel(0, winResult, winType);
+  }, 800);
+};
+
+// 修改dealerPass：清理pendingWin
+const _origDealerPass = dealerPass;
+dealerPass = function() {
+  // ★ 先读取按钮状态（在清除之前）
+  var ch = G.lastPlayedChar || '';
+  var penVisible = document.getElementById('btn-pen').style.display !== 'none';
+  var zhaoVisible = document.getElementById('btn-zhao').style.display !== 'none';
+  var huVisible = document.getElementById('btn-hu').style.display !== 'none';
+  
+  // ★ 记录过牌：庄家放弃了哪些操作权
+  if (penVisible) G._skippedOps['pen_' + ch] = true;
+  if (zhaoVisible) G._skippedOps['zhao_' + ch] = true;
+  if (huVisible) G._skippedOps['hu'] = true;
+  
+  G._pendingWin = null;
+  document.getElementById('btn-hu').style.display = 'none';
+  document.getElementById('btn-zhao').style.display = 'none';
+  document.getElementById('btn-zha').style.display = 'none';
+  document.getElementById('btn-fan').style.display = 'none';
+  document.getElementById('btn-pen').style.display = 'none';
+
+  // ★ 区分过牌场景：碰/招按钮可见=旁家出牌场景；否则=自摸后场景
+  var isOpponentDiscard = penVisible || zhaoVisible;
+  
+  if (isOpponentDiscard) {
+    // 旁家出牌后庄家过牌 → 检查旁家碰牌/流转
+    _origDealerPass();
+  } else {
+    // 自摸后庄家过牌（不做扎/泛/胡）→ 让庄家正常出牌
+    addLog(NAMES[0], '过', '');
+    setPhase('庄家出牌');
+    G.phase = 'play';
+    unlockHand();
+    updateUI();
+  }
+};
+
+// 修改opponentAutoPlay：旁家出牌后检测旁家自摸
+const _origOpponentAutoPlay = opponentAutoPlay;
+opponentAutoPlay = function(playerIdx) {
+  console.log("[流程] opponentAutoPlay, player=" + playerIdx);
+  if (G.gameOver) return;
+  const hand = opponentHands[playerIdx];
+  if (hand.length === 0) return;
+
+  if (G.deckCount > 0) {
+    var ds = G.deck.pop(); hand.push(ds.indexOf(':') >= 0 ? ds.substring(0, ds.indexOf(':')) : ds);
+    G.deckCount--;
+  } else { endGame(); return; }
+
+  // 旁家摸牌后检测扎牌（4张同字暗杠）
+  const oppCounts = {};
+  for (const c of hand) oppCounts[c] = (oppCounts[c] || 0) + 1;
+  let zhaChar = null;
+  for (const c in oppCounts) { if (oppCounts[c] >= 4) { zhaChar = c; break; } }
+  if (zhaChar) {
+    // 执行扎牌
+    for (let i = hand.length - 1; i >= 0; i--) {
+      if (hand[i] === zhaChar) hand.splice(i, 1);
+    }
+    opponentMelds[playerIdx].push({ type: 'zha', cards: [zhaChar,zhaChar,zhaChar,zhaChar] });
+    addOpponentMeld(playerIdx, 'zha', zhaChar);
+    updateOpponentCounts();
+    addLog(NAMES[playerIdx], '扎', zhaChar);
+
+    // 扎牌后摸牌底
+    if (G.deckCount > 0) {
+      var ds2 = G.deck.shift(); hand.push(ds2.indexOf(':') >= 0 ? ds2.substring(0, ds2.indexOf(':')) : ds2);
+      G.deckCount--;
+      addLog(NAMES[playerIdx], '扎后摸牌', '');
+    }
+  }
+
+  // 旁家摸牌后检测穿牌（扎牌+手中/摸到同字→穿牌）
+  for (let mi2 = opponentMelds[playerIdx].length - 1; mi2 >= 0; mi2--) {
+    if (opponentMelds[playerIdx][mi2].type === 'zha') {
+      const zhaCh2 = opponentMelds[playerIdx][mi2].cards[0];
+      const hc2 = hand.filter(c => c === zhaCh2).length;
+      if (hc2 >= 1) {
+        opponentChuan(playerIdx, zhaCh2);
+        return;
+      }
+    }
+  }
+
+  const playIdx = aiPickDiscard(hand);
+  const played = hand.splice(playIdx, 1)[0];
+  addLog(NAMES[playerIdx], '出', played);
+  setPhase(NAMES[playerIdx] + '出牌中');
+  G.lastPlayedChar = played;
+  G.lastPlayedFrom = playerIdx;
+  addDiscardCard(played, charColor(played), charVariant(played));
+  updateOpponentCounts();
+
+  setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+};
+
+// 修改checkOpponentResponse：旁家胡牌检测
+const _origCheckOppResp = checkOpponentResponse;
+checkOpponentResponse = function() {
+  console.log("[流程] checkOpponentResponse, char=" + G.lastPlayedChar + ", from=" + G.lastPlayedFrom);
+  const ch = G.lastPlayedChar;
+  const from = G.lastPlayedFrom;
+
+  // 检查旁家胡
+  for (const pi of [1, 2]) {
+    if (checkOpponentHu(pi)) {
+      G.gameOver = true;
+      lockHand();
+      addLog(NAMES[pi], '胡', ch);
+      setPhase(NAMES[pi] + '胡牌!');
+      const fakeResult = {
+        isWin: true, totalHu: MIN_HU + Math.floor(Math.random() * 20),
+        melds: [], mainJin: null, breakdown: [],
+        winType: from === 0 ? '捉统' : '自摸'
+      };
+      setTimeout(() => {
+        showSettlePanel(pi, fakeResult, fakeResult.winType);
+      }, 800);
+      return;
+    }
+  }
+
+  // 检查庄家是否有扎牌可升级为泛牌（庄家扎牌+旁家出同字→泛牌）
+  if (from !== 0 && G.dealerMelds) {
+    for (var dmi = 0; dmi < G.dealerMelds.length; dmi++) {
+      if (G.dealerMelds[dmi].type === 'zha' && G.dealerMelds[dmi].char === ch) {
+        const dealerCount = handCards.filter(c => c.ch === ch).length;
+        const drawnMatch = G.drawnCard && G.drawnCard.ch === ch ? 1 : 0;
+        if (dealerCount + drawnMatch >= 2) {
+          // ★ 检查过牌记录
+          if (G._skippedOps['pen_' + ch]) continue;
+          setPhase('等待你碰/泛牌');
+          actionsDealer.classList.add('show');
+          document.getElementById('btn-hu').style.display = 'none';
+          document.getElementById('btn-zhao').style.display = 'none';
+          document.getElementById('btn-pen').style.display = '';
+          document.getElementById('btn-zha').style.display = 'none';
+          document.getElementById('btn-pass').style.display = '';
+          // 标记为泛牌模式
+          G._pendingFan = ch;
+          return;
+        }
+      }
+    }
+  }
+
+  for (const pi of [1, 2]) {
+    const count = opponentHands[pi].filter(c => c === ch).length;
+    // 检查旁家是否有扎牌可升级为泛牌（扎牌+旁家出同字→泛牌）
+    var hasZha = false;
+    for (var mi = 0; mi < opponentMelds[pi].length; mi++) {
+      if (opponentMelds[pi][mi].type === 'zha' && opponentMelds[pi][mi].cards[0] === ch) {
+        hasZha = true; break;
+      }
+    }
+    if (count >= 2) {
+      if (hasZha) {
+        // 扎牌+旁家出同字→泛牌（取旁家手中2张+弃牌1张+扎牌区第4张=第5张）
+        addLog(NAMES[pi], '泛', ch);
+        opponentFan(pi, ch);
+        return;
+      }
+      addLog(NAMES[pi], '碰', ch);
+      setPhase(NAMES[pi] + '碰牌中');
+      setTimeout(() => opponentPen(pi, ch), 800);
+      return;
+    }
+  }
+
+  addLog('', '无人响应', '');
+  console.log('[流程] 无人响应, 将passToNext(' + from + ')');
+  setTimeout(() => passToNext(from), 600);
+};
+
+// ═══════════════════════════════════════════════════
+// Step6: 听牌判定与提示
+// ═══════════════════════════════════════════════════
+
+var ALL_22_CHARS = ['上','大','人','可','知','礼','三','五','七',
+  '化','千','孔','己','二','四','六','八','十','子','土','乙','九','赖'];
+
+// 检测庄家当前手牌听哪些牌（不包括已摸到的牌）
+// 返回: { tingChars: [{ch, hu, type}], tingType: '两听'|'摞听'|null }
+function detectTing() {
+  const cards = [...handCards];
+  if (G.drawnCard) cards.push(G.drawnCard);
+  const preMelds = [];
+  (G.dealerMelds || []).forEach(m => {
+    if (m.inHand) {
+      const cd = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      const actualChars = cd.map(c => c.ch);
+      preMelds.push({type: 'zha', chars: actualChars, cards: cd.slice(0, 4)});
+    } else {
+      const cd = m.cards || Array.from({length: m.count}, () => makeCardData(m.char));
+      preMelds.push({type: m.type || 'pen', chars: Array(m.count).fill(m.char), cards: cd});
+    }
+  });
+
+  // ═══ 统计余牌中每字的可见剩余数量 ═══
+  const totalPerChar = {};
+  for (const ch of '上大人可知礼化三千孔乙己二四五六七八九子十土赖') {
+    totalPerChar[ch] = (ch === '赖') ? 2 : 5;
+  }
+  function subtractCards(cardList) {
+    for (const c of cardList) {
+      const ch = (typeof c === 'string') ? c : c.ch;
+      if (totalPerChar[ch] !== undefined) totalPerChar[ch]--;
+    }
+  }
+  subtractCards(cards);
+  for (const m of preMelds) subtractCards(m.cards);
+  for (let pi = 1; pi <= 2; pi++) subtractCards(opponentHands[pi] || []);
+  for (let pi = 1; pi <= 2; pi++) {
+    for (const m of (opponentMelds[pi] || [])) subtractCards(m.cards);
+  }
+  document.querySelectorAll('#discard-pool .card').forEach(el => {
+    const ch = el.dataset.ch;
+    if (ch && totalPerChar[ch] !== undefined) totalPerChar[ch]--;
+  });
+
+  // ═══ 枚举所有字面，模拟摸牌 ═══
+  const tingChars = [];
+  for (const ch of ALL_22_CHARS) {
+    const testCard = makeCardData(ch);
+    const testCards = [...cards, testCard];
+    const result = analyzeHand(testCards, preMelds);
+    if (result && result.totalHu >= MIN_HU) {
+      const remaining = Math.max(0, totalPerChar[ch] || 0);
+      tingChars.push({ch, hu: result.totalHu, remaining});
+    }
+  }
+  // 赖子单独检测
+  const wildCard = makeCardData(WILD_CHAR);
+  const simWild = [...cards, wildCard];
+  const wildResult = analyzeHand(simWild, preMelds);
+  if (wildResult && wildResult.totalHu >= MIN_HU) {
+    const remaining = Math.max(0, totalPerChar[WILD_CHAR] || 0);
+    tingChars.push({ch: WILD_CHAR, hu: wildResult.totalHu, remaining});
+  }
+
+  // 判定听牌类型
+  let tingType = null;
+  var meldExtra = 0;
+  (G.dealerMelds || []).forEach(m => {
+    var cnt = m.count || 3;
+    if (cnt === 3) meldExtra += 2;
+    else if (cnt === 4) meldExtra += (m.type === 'zha' ? 3 : 2);
+    else if (cnt === 5) meldExtra += (m.type === 'chuan' ? 3 : 2);
+  });
+  var expectedLen = 25 - meldExtra;
+  if (cards.length === expectedLen) tingType = '两听';
+  else if (cards.length === expectedLen - 1) tingType = '摞听';
+
+  return {tingChars, tingType};
+}
+
+// 显示/隐藏听牌提示面板
+function showTingPanel(tingResult) {
+  const container = document.getElementById('ting-container');
+  if (!tingResult || !tingResult.tingChars || tingResult.tingChars.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let charsHtml = '';
+  tingResult.tingChars.forEach(t => {
+    const color = charColor(t.ch);
+    const label = color === 'red' ? 'red' : 'black';
+    const rem = (t.remaining !== undefined) ? t.remaining : '?';
+    const remClass = rem === 0 ? ' ting-rem-zero' : '';
+    charsHtml += '<div class="ting-char-item">' +
+      '<span class="ting-ch ' + label + '">' + t.ch + '</span>' +
+      '<span class="ting-hu">' + t.hu + '胡</span>' +
+      '<span class="ting-rem' + remClass + '">余' + rem + '</span></div>';
+  });
+
+  var badge = document.createElement('div');
+  badge.className = 'ting-badge';
+  badge.innerHTML =
+    '<div class="ting-badge-title">' + (tingResult.tingType || '听牌') + '</div>' +
+    '<div class="ting-badge-chars">' + charsHtml + '</div>' +
+    '<div class="ting-type-label">听 ' + tingResult.tingChars.length + ' 种牌</div>' +
+    '<div class="ting-close-hint">点击关闭</div>';
+  badge.onclick = function() { container.innerHTML = ''; };
+  container.innerHTML = '';
+  container.appendChild(badge);
+}
+
+function hideTingPanel() {
+  document.getElementById('ting-container').innerHTML = '';
+}
+
+// 听牌检测已移至playCard出牌后自动触发，unlockHand不再检测听牌
+
+
+
+// ═══════════════════════════════════════════════════
+// Step 7: 旁家AI智能出牌策略（降低流局率）
+// ═══════════════════════════════════════════════════
+
+/**
+ * 旁家AI选择出牌 — 基于牌型价值评分
+ *
+ * 策略优先级（从低到高分 = 不打出）：
+ *   - 分数 0: 孤立单张（无顺子关联、无双张）
+ *   - 分数 1: 仅参与一个口（半顺子），无对子
+ *   - 分数 2: 仅有一个对子，无顺子关联
+ *   - 分数 3: 参与两个或更多口/顺子关联
+ *   - 分数 4: 双张且参与顺子关联
+ *   - 分数 5: 三张（坎牌候选）
+ *   - 分数 8: 精牌（三/五/七/乙/九）额外加分
+ *
+ * 同分时：出字面在SORT_ORDER中排最后的（数字大或关联少的字优先出）
+ *
+ * @param {string[]} hand - 旁家手牌字面数组
+ * @returns {number} 要打出的牌在hand中的索引
+ */
+function aiPickDiscard(hand) {
+  if (hand.length === 0) return -1;
+  if (hand.length === 1) return 0;
+
+  // 1. 统计各字出现次数
+  const counts = {};
+  for (const ch of hand) {
+    counts[ch] = (counts[ch] || 0) + 1;
+  }
+
+  // 2. 统计各字参与的口数量（在手牌中能形成的半顺子组合）
+  const kouCount = {};
+  for (const [ch1, ch2] of ALL_KOU_LIST) {
+    if ((counts[ch1] || 0) > 0 && (counts[ch2] || 0) > 0) {
+      kouCount[ch1] = (kouCount[ch1] || 0) + 1;
+      kouCount[ch2] = (kouCount[ch2] || 0) + 1;
+    }
+  }
+
+  // 3. 统计各字可参与的完整顺子数量（手牌中有全部3张的顺子）
+  const seqComplete = {};
+  for (const seq of ALL_SEQS) {
+    if (seq.every(ch => (counts[ch] || 0) > 0)) {
+      for (const ch of seq) {
+        seqComplete[ch] = (seqComplete[ch] || 0) + 1;
+      }
+    }
+  }
+
+  // 4. 统计各字可参与但缺一张的顺子数量（差一张就完整）
+  const seqNear = {};
+  for (const seq of ALL_SEQS) {
+    let has = 0, missing = 0;
+    for (const ch of seq) {
+      if ((counts[ch] || 0) > 0) has++;
+      else missing++;
+    }
+    if (missing === 1 && has === 2) {
+      for (const ch of seq) {
+        if ((counts[ch] || 0) > 0) {
+          seqNear[ch] = (seqNear[ch] || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // 5. 为每张牌计算价值评分
+  const scores = hand.map((ch, idx) => {
+    const cnt = counts[ch];
+    const kou = kouCount[ch] || 0;
+    const seqC = seqComplete[ch] || 0;
+    const seqN = seqNear[ch] || 0;
+    const isJing = JING_CHARS.has(ch);
+
+    let score = 0;
+
+    // 孤立单张：无口、无双张
+    if (cnt === 1 && kou === 0) {
+      score = 0;
+    }
+    // 仅参与口，无双张
+    else if (cnt === 1 && kou > 0) {
+      score = 1 + Math.min(kou - 1, 2); // 参与更多口更有价值
+    }
+    // 对子，无顺子关联
+    else if (cnt === 2 && kou === 0) {
+      score = 2;
+    }
+    // 对子，有顺子关联
+    else if (cnt === 2 && kou > 0) {
+      score = 3 + Math.min(kou - 1, 2);
+      // 如果差一张就凑成顺子，额外加分
+      if (seqN > 0) score += seqN;
+    }
+    // 三张（坎牌候选）
+    else if (cnt >= 3) {
+      score = 5 + (kou > 0 ? 1 : 0);
+    }
+    // 默认（安全兜底）
+    else {
+      score = 1;
+    }
+
+    // 赖子加分：全幅仅2张，可通配三五七凑胡，实战中绝不轻出
+    // 给赖子远超普通精牌的保留权重，使其几乎不会被优先打出
+    if (ch === '赖') {
+      // 基础保留分 = 50（远高于任何普通牌的最高评分~13）
+      score += 50;
+      // 赖子+三五七在手越多，赖子越有价值（通配选择更灵活）
+      const san357 = (counts['三']||0) + (counts['五']||0) + (counts['七']||0);
+      if (san357 >= 2) score += 10;
+      else if (san357 >= 1) score += 5;
+    }
+    // 精牌加分：精牌用于凑胡更关键，不应轻易打出
+    else if (isJing) {
+      score += 3;
+    }
+
+    // 完整顺子加分
+    if (seqC > 0) score += seqC * 2;
+
+    // 字面排序因子：SORT_ORDER中排越后的越先出（打破同分平局）
+    // SORT_ORDER = '上大人可知礼三化千孔乙己二四五六七八九十子土赖'
+    const orderFactor = SORT_ORDER.indexOf(ch);
+
+    return { idx, ch, score, orderFactor, cnt };
+  });
+
+  // 6. 排序：分数从低到高，同分时orderFactor从大到小
+  scores.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    return b.orderFactor - a.orderFactor;
+  });
+
+  // 7. 返回价值最低的牌的索引
+  return scores[0].idx;
+}
+
+
+
+// ═══ 启动游戏（移至文件末尾，确保所有常量/函数已定义） ═══
+initGame();
+
+</script>
+
+
+  <!-- 工具栏 -->
+  <div class="tool-bar">
+    <button class="tool-btn" onclick="showTingPopup()">查听牌</button>
+    <button class="tool-btn" onclick="showSettleHistory()">查结算</button>
+    <button class="tool-btn" onclick="showRecordPopup()">战绩</button>
+    <button class="tool-btn" onclick="showChatPopup()">发言</button>
+  </div>
+
+</body>
+</html>
