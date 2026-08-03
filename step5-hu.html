@@ -1147,8 +1147,8 @@
       border-color: rgba(255,255,255,0.1);
     }
     /* 手机竖屏提示 */
-    @media (orientation: portrait) {
-      .portrait-warning.visible { display: flex; }
+    @media (orientation: portrait) and (max-width: 1023px) {
+      .portrait-warning { display: flex !important; }
     }
     .zha-pick-btn:active {
       background: rgba(255,255,255,0.14);
@@ -8561,23 +8561,6 @@ updateAILevelDisplay();
 })();
 </script>
 <script>
-  // 手机横屏检测：竖屏时显示提示，横屏时隐藏
-  function _updateOrientationWarning() {
-    var pw = document.querySelector('.portrait-warning');
-    if (!pw) return;
-    var isPortrait = window.innerHeight > window.innerWidth;
-    var isMobile = window.innerWidth < 1024;
-    if (isMobile && isPortrait) {
-      pw.classList.add('visible');
-    } else {
-      pw.classList.remove('visible');
-    }
-  }
-  _updateOrientationWarning();
-  window.addEventListener('resize', _updateOrientationWarning);
-  window.addEventListener('orientationchange', function() {
-    setTimeout(_updateOrientationWarning, 200);
-  });
   // 首次用户点击时尝试锁定横屏（部分浏览器支持）
   document.addEventListener('click', function _tryLock() {
     if (screen && screen.orientation && screen.orientation.lock) {
