@@ -2162,9 +2162,8 @@ function parseDeckCard(deckStr) {
 // ── 精牌显示映射：花精用大写数字，皮精用原字 ──
 const FLOWER_DISPLAY = { '三':'叁', '五':'伍', '七':'柒', '乙':'壹', '九':'玖' };
 function displayChar(cardData) {
-  // cardData: { ch, v, ... } 或字符串ch
-  const ch = typeof cardData === 'string' ? cardData : cardData.ch;
-  const v = typeof cardData === 'string' ? undefined : cardData.v;
+  var ch = typeof cardData === 'string' ? cardData : cardData.ch;
+  var v = typeof cardData === 'string' ? undefined : cardData.v;
   if (v === 'flower' && FLOWER_DISPLAY[ch]) return FLOWER_DISPLAY[ch];
   return ch;
 }
@@ -5554,7 +5553,12 @@ function _calcTotalHu(melds, mainJin) {
     const isMain = mainJin && m.cards.some(c => c.ch === mainJin);
     const hu = _calcMeld(m.cards, m.type, isMain, mainJin, m.chars);
     total += hu;
-    breakdown.push({type:m.type, chars:m.cards.map(c=>displayChar(c)).join(''), hu, label:_meldLabel(m.type)});
+    // 强制使用FLOWER_DISPLAY确保花牌显示正确
+    var displayChars = m.cards.map(function(c) {
+      if (c.v === 'flower' && FLOWER_DISPLAY[c.ch]) return FLOWER_DISPLAY[c.ch];
+      return displayChar(c);
+    }).join('');
+    breakdown.push({type:m.type, chars:displayChars, hu, label:_meldLabel(m.type)});
   }
   return {total, breakdown};
 }
@@ -6348,8 +6352,10 @@ function showSettlePanel(winnerIdx, winResult, winType) {
       const wildClass = c.isWild ? ' wild-in-meld' : '';
       const flowerClass = c.v === 'flower' ? ' mini-flower' : '';
       const isJing = c.isJin && !c.isWild;
-      const fpTag = ''; // 花精用大写数字显示(叁伍柒壹玖)，无需额外标签
-      return '<span class="mini-card ' + color + wildClass + flowerClass + '" style="position:relative;">' + displayChar(c) + fpTag + '</span>';
+      // 强制使用FLOWER_DISPLAY确保花牌显示正确
+      var displayCh = displayChar(c);
+      if (c.v === 'flower' && FLOWER_DISPLAY[c.ch]) displayCh = FLOWER_DISPLAY[c.ch];
+      return '<span class="mini-card ' + color + wildClass + flowerClass + '" style="position:relative;">' + displayCh + '</span>';
     }).join('');
     meldsHtml += '<div class="settle-meld-group">' +
       '<div class="settle-meld-label">' + _meldLabel(m.type) + '</div>' +
