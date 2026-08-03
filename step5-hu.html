@@ -5895,56 +5895,11 @@ function _analyzeHandCore(cards, preMelds) {
     }
   }
 
-  // 两眼尝试（7+2两听）
-  function tryTwoEyes(eye1, eye2) {
-    // 合并两个眼的消耗
-    const removed = Object.assign({}, eye1.removed);
-    for (const [ch, n] of Object.entries(eye2.removed)) {
-      removed[ch] = (removed[ch]||0) + n;
-    }
-    // 检查消耗是否合法（不超过cc中的数量）
-    for (const [ch, n] of Object.entries(removed)) {
-      if ((cc[ch]||0) < n) return;
-    }
-    const totalWildUsed = eye1.wildUsed + eye2.wildUsed;
-    if (totalWildUsed > wildCards.length) return;
-    // 检查第二眼的cards是否与第一眼重叠
-    const usedSet = new Set(eye1.cards);
-    const eye2Cards = [];
-    for (const c of eye2.cards) {
-      if (usedSet.has(c)) return; // 重叠，跳过
-      eye2Cards.push(c);
-    }
-    const cnt = Object.assign({}, cc);
-    for (const [ch, n] of Object.entries(removed)) {
-      cnt[ch] -= n;
-      if (cnt[ch] === 0) delete cnt[ch];
-    }
-    const wu = Array(totalWildUsed).fill(true).concat(Array(wildCards.length - totalWildUsed).fill(false));
-    const wcRem = wildCards.slice(totalWildUsed);
-    const allUsedSet = new Set([...eye1.cards, ...eye2Cards]);
-    const melds = [
-      {type:eye1.type, chars:eye1.cards.map(c=>c.ch), cards:eye1.cards},
-      {type:eye2.type, chars:eye2Cards.map(c=>c.ch), cards:eye2Cards}
-    ];
-    var results = [];
-    if (_partition(cnt, wcRem, wu, normalCards, melds, 0, allUsedSet, results)) {
-      for (var ri = 0; ri < results.length; ri++) tryRes(results[ri]);
-    }
-  }
-
   // 枚举所有眼组合
   const eyeCandidates = enumEyeCandidates(cc, wildCards);
-  // 对子眼候选（用于两听7+2）
-  const pairEyes = eyeCandidates.filter(e => e.type === 'pair');
   // 单眼（8+1摞听）：对子眼和口眼都可以
+  // 注意：花牌胡牌只能是8组型牌+1眼(摞听)，不支持7组+2眼(两听)
   for (const eye of eyeCandidates) trySingleEye(eye);
-  // 两眼（7+2两听）：只使用对子眼，口眼只用于摞听
-  for (let i = 0; i < pairEyes.length; i++) {
-    for (let j = i + 1; j < pairEyes.length; j++) {
-      tryTwoEyes(pairEyes[i], pairEyes[j]);
-    }
-  }
 
   return best;
 }
