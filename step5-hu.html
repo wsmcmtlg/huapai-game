@@ -304,6 +304,15 @@
     display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
     z-index: 10;
   }
+  /* 旁家明牌区旋转90度，朝向自家玩家 */
+  #melds-right .meld-group {
+    transform: rotate(-90deg);
+    transform-origin: center center;
+  }
+  #melds-left .meld-group {
+    transform: rotate(90deg);
+    transform-origin: center center;
+  }
 
   /* ═══════ 锁牌区（扎牌存放） ═══════ */
   .z-lock-area {
@@ -1070,6 +1079,8 @@
       width: 50px;
       height: 140px;
     }
+    .side-meld-zone .meld-group .card { width: 22px; height: 32px; }
+    .side-meld-zone .meld-group .card .card-char { font-size: 14px; }
     .player-info {
       font-size: 10px;
       padding: 4px 8px;
@@ -1206,6 +1217,8 @@
     }
     .side-hand-zone { width: 45px; height: 110px; }
     .side-meld-zone { width: 40px; height: 110px; }
+    .side-meld-zone .meld-group .card { width: 18px; height: 26px; }
+    .side-meld-zone .meld-group .card .card-char { font-size: 11px; }
     .act-btn {
       padding: 4px 8px;
       font-size: 13px;
@@ -2956,7 +2969,8 @@ function checkResponseAfterOpponent(fromIdx) {
         G._pendingWin = {...analyzeResult, totalHu: huInfo.total, breakdown: huInfo.breakdown, winType: '捉铳'};
         console.log('[流程] 庄家可捉铳! ' + ch + ' → ' + G._pendingWin.totalHu + '胡');
         setPhase('庄家可胡牌(捉铳)');
-        actionsDealer.classList.add('show');
+        // 庄家已过扎牌，非庄家回合时隐藏按钮
+        if (!G._zhaPassed) { actionsDealer.classList.add('show'); }
         document.getElementById('btn-hu').style.display = '';
         document.getElementById('btn-zhao').style.display = 'none';
         document.getElementById('btn-pen').style.display = 'none';
@@ -3001,6 +3015,8 @@ function checkResponseAfterOpponent(fromIdx) {
       if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
       if (canZhao && G._skippedOps['zhao_' + ch]) canZhao = false;
       if (canZhao || canPen || canFan) {
+        // 庄家已过扎牌，非庄家回合时不显示操作按钮
+        if (G._zhaPassed) { return; }
         setPhase(canZhao ? '等待你碰/招牌' : canFan ? '等待你泛牌' : '等待你碰牌');
         actionsDealer.classList.add('show');
         document.getElementById('btn-zhao').style.display = canZhao ? '' : 'none';
@@ -3621,6 +3637,7 @@ function dealerFan() {  actionsDealer.classList.remove('show');
 }/* ═══ 庄家扎牌+自摸检测（通用） ═══ */
 // 在摸牌后和初始化时调用，检测庄家是否可以扎牌或自摸
 function checkDealerZhaAndHu() {
+  G._zhaPassed = false; // 庄家新一轮回合，重置扎牌标记
   var huResult = checkDealerSelfHu();
   console.log('[DEBUG-ZHAHU] handLen=' + handCards.length + ' drawn=' + (G.drawnCard ? G.drawnCard.ch : 'null') + ' melds=' + (G.dealerMelds ? G.dealerMelds.length : 0) + ' huResult=' + (huResult ? huResult.totalHu + 'hu' : 'null'));
   var allChars = handCards.map(c => c.ch);
@@ -4435,6 +4452,7 @@ function dealerChuan() {
 /* ═══ 庄家过 ═══ */
 function dealerPass() {
   console.log("[流程] dealerPass");
+  G._zhaPassed = true; // 标记：庄家已过扎牌，非庄家回合时隐藏按钮
   actionsDealer.classList.remove('show');
 
   // 摸牌底同字穿牌模式：过牌=放弃穿牌，进入出牌阶段（暂存牌保持暂存，出牌时处理）
@@ -5192,6 +5210,7 @@ initGame = function() {
   G._pendingWin = null;
   G._pendingFan = null;
   G._skippedOps = {};
+  G._zhaPassed = false; // 扎牌跳过标记
   G._oppBehavior = null; // Phase 4: 旁家行为追踪，每局重置
   const tingEl = document.getElementById('ting-hint');
   if (tingEl) tingEl.style.display = 'none';  // 过牌记录: { 'pen_上': true, 'zhao_三': true, 'hu': true }
