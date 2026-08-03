@@ -300,19 +300,24 @@
   .side-hand-zone .hand .card + .card { margin-left: -8px; }
 
   .side-meld-zone {
-    position: absolute; width: 100px; height: 340px;
-    display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+    position: absolute; width: auto; height: auto;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
     z-index: 10;
   }
-  /* 旁家明牌区旋转90度，朝向自家玩家 */
+  #melds-right {
+    flex-direction: column-reverse; right: 50px; top: 14%;
+  }
   #melds-right .meld-group {
     transform: rotate(-90deg);
-    transform-origin: center center;
+  }
+  #melds-left {
+    flex-direction: column; left: 50px; top: 14%;
   }
   #melds-left .meld-group {
     transform: rotate(90deg);
-    transform-origin: center center;
   }
+  /* 旁家明牌区旋转90度，朝向自家玩家 */
+
 
   /* ═══════ 锁牌区（扎牌存放） ═══════ */
   .z-lock-area {
@@ -1075,12 +1080,9 @@
     .side-hand-zone .hand .card + .card {
       margin-left: -12px;
     }
-    .side-meld-zone {
-      width: 50px;
-      height: 140px;
-    }
-    .side-meld-zone .meld-group .card { width: 22px; height: 32px; }
-    .side-meld-zone .meld-group .card .card-char { font-size: 14px; }
+    .side-meld-zone { width: auto; height: auto; }
+    #melds-right { right: 20px; }
+    #melds-left { left: 20px; }
     .player-info {
       font-size: 10px;
       padding: 4px 8px;
@@ -1216,9 +1218,8 @@
       height: clamp(80px, 16vh, 140px);
     }
     .side-hand-zone { width: 45px; height: 110px; }
-    .side-meld-zone { width: 40px; height: 110px; }
-    .side-meld-zone .meld-group .card { width: 18px; height: 26px; }
-    .side-meld-zone .meld-group .card .card-char { font-size: 11px; }
+    #melds-right { right: 10px; }
+    #melds-left { left: 10px; }
     .act-btn {
       padding: 4px 8px;
       font-size: 13px;
@@ -1678,7 +1679,7 @@
     <div class="p-name">下家 <span class="ai-level-tag" id="ai-level-right" ondblclick="cycleAILevel()" title="双击调整AI水平">大师</span></div>
     <div class="p-stats">已扎 <span id="right-zha">0</span>次 | 明牌 <span id="right-meld-hu">0</span>胡</div>
   </div>
-  <div class="side-meld-zone" style="top:14%;right:170px;" id="melds-right"></div>
+  <div class="side-meld-zone" id="melds-right"></div>
   <div class="side-hand-zone" style="top:14%;right:12px;">
     <div class="hand" id="hand-right"></div>
   </div>
@@ -1691,7 +1692,7 @@
   <div class="side-hand-zone" style="top:14%;left:12px;">
     <div class="hand" id="hand-left"></div>
   </div>
-  <div class="side-meld-zone" style="top:14%;left:170px;" id="melds-left"></div>
+  <div class="side-meld-zone" id="melds-left"></div>
 
   <!-- 庄家信息 -->
   <div class="player-info active" id="pi-bottom" style="bottom:8px;left:2%;">
