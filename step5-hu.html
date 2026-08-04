@@ -6523,6 +6523,8 @@ passToNext = function(fromIdx) {
 const _origCheckResponse = checkResponseAfterOpponent;
 checkResponseAfterOpponent = function(fromIdx) {
   console.log("[流程] checkResponseAfterOpponent, from=" + fromIdx + ", char=" + G.lastPlayedChar);
+  // ★ 庄家已过扎牌，非庄家回合时不显示操作按钮
+  if (G._zhaPassed) { return; }
   const ch = G.lastPlayedChar;
   // 旁家操作期间，允许玩家拖拽手牌整理
   lockHandForOpponent();
