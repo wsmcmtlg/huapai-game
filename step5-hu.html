@@ -3637,7 +3637,12 @@ function dealerFan() {  actionsDealer.classList.remove('show');
 }/* ═══ 庄家扎牌+自摸检测（通用） ═══ */
 // 在摸牌后和初始化时调用，检测庄家是否可以扎牌或自摸
 function checkDealerZhaAndHu() {
-  G._zhaPassed = false; // 庄家新一轮回合，重置扎牌标记
+  // ★ 非庄家回合时不执行任何操作
+  if (G.phase && G.phase !== 'draw' && G.phase !== 'play' && G.phase !== 'mo' && G.phase !== 'hu-check') {
+    return false;
+  }
+  // 庄家已过扎牌，本轮不再重复检测
+  if (G._zhaPassed) return false;
   var huResult = checkDealerSelfHu();
   console.log('[DEBUG-ZHAHU] handLen=' + handCards.length + ' drawn=' + (G.drawnCard ? G.drawnCard.ch : 'null') + ' melds=' + (G.dealerMelds ? G.dealerMelds.length : 0) + ' huResult=' + (huResult ? huResult.totalHu + 'hu' : 'null'));
   var allChars = handCards.map(c => c.ch);
@@ -4832,6 +4837,8 @@ addLog(NAMES[playerIdx], '出', played);
 
 /* ═══ 摸牌动画 ═══ */
 function animateDealerDraw(data, callback) {
+  // 庄家摸牌=新一轮开始，重置扎牌标记
+  G._zhaPassed = false;
     invalidateHoverTingCache();
 
   console.log("[流程] animateDealerDraw, char=" + data.ch + ", variant=" + data.v);
