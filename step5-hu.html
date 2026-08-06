@@ -253,7 +253,7 @@
   .z-discard .card-char { font-size: 20px; }
 
   .z-game-status {
-    position: absolute; top: 12px; left: calc(15% + 150px);
+    position: absolute; top: 12px; left: 15%;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 10px 14px; border-radius: 8px;
     font-size: 12px; line-height: 1.8;
@@ -267,7 +267,7 @@
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
   .log-bar {
-    position: absolute; top: 12px; right: calc(15% + 150px);
+    position: absolute; top: 12px; right: 15%;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 6px 12px; border-radius: 8px;
     font-size: 11px; line-height: 1.6;
@@ -300,24 +300,10 @@
   .side-hand-zone .hand .card + .card { margin-left: -8px; }
 
   .side-meld-zone {
-    position: absolute; width: auto; height: auto;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: absolute; width: 100px; height: 340px;
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
     z-index: 10;
   }
-  #melds-right {
-    flex-direction: column-reverse; right: 50px; top: 14%;
-  }
-  #melds-right .meld-group {
-    transform: rotate(-90deg);
-  }
-  #melds-left {
-    flex-direction: column; left: 50px; top: 14%;
-  }
-  #melds-left .meld-group {
-    transform: rotate(90deg);
-  }
-  /* 旁家明牌区旋转90度，朝向自家玩家 */
-
 
   /* ═══════ 锁牌区（扎牌存放） ═══════ */
   .z-lock-area {
@@ -456,19 +442,6 @@
     z-index: 25; pointer-events: none; white-space: nowrap;
     transition: opacity 0.5s;
   }
-
-  /* 手机竖屏提示 */
-  .portrait-warning {
-    display: none;
-    position: fixed; inset: 0; z-index: 9999;
-    background: #1a472a;
-    align-items: center; justify-content: center;
-    flex-direction: column; gap: 16px;
-  }
-  .portrait-warning-inner { text-align: center; }
-  .portrait-icon { font-size: 48px; }
-  .portrait-text { font-size: 22px; font-weight: 700; color: var(--gold-light); margin-top: 8px; }
-  .portrait-sub { font-size: 14px; color: rgba(245,240,225,0.6); margin-top: 4px; }
 
   /* 流局遮罩 */
   .game-over-overlay {
@@ -1080,9 +1053,10 @@
     .side-hand-zone .hand .card + .card {
       margin-left: -12px;
     }
-    .side-meld-zone { width: auto; height: auto; }
-    #melds-right { right: 20px; }
-    #melds-left { left: 20px; }
+    .side-meld-zone {
+      width: 50px;
+      height: 140px;
+    }
     .player-info {
       font-size: 10px;
       padding: 4px 8px;
@@ -1159,10 +1133,6 @@
       background: rgba(255,255,255,0.06);
       border-color: rgba(255,255,255,0.1);
     }
-    /* 手机竖屏提示 */
-    @media (orientation: portrait) and (max-width: 1023px) {
-      .portrait-warning { display: flex !important; }
-    }
     .zha-pick-btn:active {
       background: rgba(255,255,255,0.14);
       border-color: rgba(234,179,8,0.5);
@@ -1218,8 +1188,7 @@
       height: clamp(80px, 16vh, 140px);
     }
     .side-hand-zone { width: 45px; height: 110px; }
-    #melds-right { right: 10px; }
-    #melds-left { left: 10px; }
+    .side-meld-zone { width: 40px; height: 110px; }
     .act-btn {
       padding: 4px 8px;
       font-size: 13px;
@@ -1610,14 +1579,6 @@
 </style>
 </head>
 <body>
-  <!-- 手机竖屏提示 -->
-  <div class="portrait-warning">
-    <div class="portrait-warning-inner">
-      <div class="portrait-icon">&#x1f503;</div>
-      <div class="portrait-text">请将手机横屏</div>
-      <div class="portrait-sub">横屏后获得最佳游戏体验</div>
-    </div>
-  </div>
 <div class="table">
 
   <!-- 音效控制按钮 -->
@@ -1679,7 +1640,7 @@
     <div class="p-name">下家 <span class="ai-level-tag" id="ai-level-right" ondblclick="cycleAILevel()" title="双击调整AI水平">大师</span></div>
     <div class="p-stats">已扎 <span id="right-zha">0</span>次 | 明牌 <span id="right-meld-hu">0</span>胡</div>
   </div>
-  <div class="side-meld-zone" id="melds-right"></div>
+  <div class="side-meld-zone" style="top:14%;right:170px;" id="melds-right"></div>
   <div class="side-hand-zone" style="top:14%;right:12px;">
     <div class="hand" id="hand-right"></div>
   </div>
@@ -1692,7 +1653,7 @@
   <div class="side-hand-zone" style="top:14%;left:12px;">
     <div class="hand" id="hand-left"></div>
   </div>
-  <div class="side-meld-zone" id="melds-left"></div>
+  <div class="side-meld-zone" style="top:14%;left:170px;" id="melds-left"></div>
 
   <!-- 庄家信息 -->
   <div class="player-info active" id="pi-bottom" style="bottom:8px;left:2%;">
@@ -2162,8 +2123,9 @@ function parseDeckCard(deckStr) {
 // ── 精牌显示映射：花精用大写数字，皮精用原字 ──
 const FLOWER_DISPLAY = { '三':'叁', '五':'伍', '七':'柒', '乙':'壹', '九':'玖' };
 function displayChar(cardData) {
-  var ch = typeof cardData === 'string' ? cardData : cardData.ch;
-  var v = typeof cardData === 'string' ? undefined : cardData.v;
+  // cardData: { ch, v, ... } 或字符串ch
+  const ch = typeof cardData === 'string' ? cardData : cardData.ch;
+  const v = typeof cardData === 'string' ? undefined : cardData.v;
   if (v === 'flower' && FLOWER_DISPLAY[ch]) return FLOWER_DISPLAY[ch];
   return ch;
 }
@@ -2431,7 +2393,6 @@ const cardEls = [];
 
 /* ═══ 初始化 ═══ */
 function initGame() {
-  // 手机横屏锁定由页面底部的点击事件处理
     invalidateHoverTingCache();
 
   G.deck = generateDeck();
@@ -2678,16 +2639,6 @@ function onDown(e) {
 }
 function onTouchDown(e) {
   e.preventDefault(); const t=e.touches[0]; dragStartPos = {x:t.clientX,y:t.clientY}; beginDrag(e.currentTarget, t.clientX, t.clientY);
-  // 手机双击检测: 记录触控时间
-  const el = e.currentTarget;
-  const now = Date.now();
-  if (el._lastTap && now - el._lastTap < 350) {
-    // 双击触发
-    el._lastTap = 0;
-    if (!dragMoved && !G.locked && !G.gameOver) playCard(el);
-  } else {
-    el._lastTap = now;
-  }
 }
 function beginDrag(el, cx, cy) {
   const r = handZone.getBoundingClientRect();
@@ -2969,8 +2920,7 @@ function checkResponseAfterOpponent(fromIdx) {
         G._pendingWin = {...analyzeResult, totalHu: huInfo.total, breakdown: huInfo.breakdown, winType: '捉铳'};
         console.log('[流程] 庄家可捉铳! ' + ch + ' → ' + G._pendingWin.totalHu + '胡');
         setPhase('庄家可胡牌(捉铳)');
-        // 庄家已过扎牌，非庄家回合时隐藏按钮
-        if (!G._zhaPassed) { actionsDealer.classList.add('show'); }
+        actionsDealer.classList.add('show');
         document.getElementById('btn-hu').style.display = '';
         document.getElementById('btn-zhao').style.display = 'none';
         document.getElementById('btn-pen').style.display = 'none';
@@ -3015,8 +2965,6 @@ function checkResponseAfterOpponent(fromIdx) {
       if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
       if (canZhao && G._skippedOps['zhao_' + ch]) canZhao = false;
       if (canZhao || canPen || canFan) {
-        // 庄家已过扎牌，非庄家回合时不显示操作按钮
-        if (G._zhaPassed) { return; }
         setPhase(canZhao ? '等待你碰/招牌' : canFan ? '等待你泛牌' : '等待你碰牌');
         actionsDealer.classList.add('show');
         document.getElementById('btn-zhao').style.display = canZhao ? '' : 'none';
@@ -3637,8 +3585,6 @@ function dealerFan() {  actionsDealer.classList.remove('show');
 }/* ═══ 庄家扎牌+自摸检测（通用） ═══ */
 // 在摸牌后和初始化时调用，检测庄家是否可以扎牌或自摸
 function checkDealerZhaAndHu() {
-  // 庄家已过扎牌，本轮不再重复检测
-  if (G._zhaPassed) { return false; }
   var huResult = checkDealerSelfHu();
   console.log('[DEBUG-ZHAHU] handLen=' + handCards.length + ' drawn=' + (G.drawnCard ? G.drawnCard.ch : 'null') + ' melds=' + (G.dealerMelds ? G.dealerMelds.length : 0) + ' huResult=' + (huResult ? huResult.totalHu + 'hu' : 'null'));
   var allChars = handCards.map(c => c.ch);
@@ -4453,7 +4399,6 @@ function dealerChuan() {
 /* ═══ 庄家过 ═══ */
 function dealerPass() {
   console.log("[流程] dealerPass");
-  G._zhaPassed = true; // 标记：庄家已过扎牌，非庄家回合时隐藏按钮
   actionsDealer.classList.remove('show');
 
   // 摸牌底同字穿牌模式：过牌=放弃穿牌，进入出牌阶段（暂存牌保持暂存，出牌时处理）
@@ -4545,8 +4490,6 @@ function dealerPass() {
   if (!found) {
     setTimeout(() => passToNext(fromIdx), 400);
   }
-  // 兜底：确保面板不会在非庄家回合时意外显示
-  setTimeout(function() { actionsDealer.classList.remove('show'); }, 500);
 }
 
 /* ═══ 操作权流转 ═══ */
@@ -4835,8 +4778,6 @@ addLog(NAMES[playerIdx], '出', played);
 
 /* ═══ 摸牌动画 ═══ */
 function animateDealerDraw(data, callback) {
-  // 庄家摸牌=新一轮开始，重置扎牌标记
-  G._zhaPassed = false;
     invalidateHoverTingCache();
 
   console.log("[流程] animateDealerDraw, char=" + data.ch + ", variant=" + data.v);
@@ -5215,7 +5156,6 @@ initGame = function() {
   G._pendingWin = null;
   G._pendingFan = null;
   G._skippedOps = {};
-  G._zhaPassed = false; // 扎牌跳过标记
   G._oppBehavior = null; // Phase 4: 旁家行为追踪，每局重置
   const tingEl = document.getElementById('ting-hint');
   if (tingEl) tingEl.style.display = 'none';  // 过牌记录: { 'pen_上': true, 'zhao_三': true, 'hu': true }
@@ -5388,6 +5328,34 @@ function _lookupJingHu(cards, mtype, isMain) {
 }
 
 
+/* ═══ P1 统一精牌计胡（pathfinder U1）═══ */
+// 返回单张精牌的基础花皮胡数（不含主精翻倍、不含赖子）
+function calcJingBase(ch, v) {
+  if (RED_JING.has(ch)) return v === 'flower' ? 2 : 1;
+  if (BLACK_JING.has(ch)) return v === 'flower' ? 1 : 0;
+  return 0;
+}
+// 返回单张牌的精牌/赖子胡数（含主精翻倍，用于单张翻倍语义: pair/kou/pen/seq）
+// standIn: 赖子所替代的字符（可选）
+function calcJingHu(c, mainJinChar, standIn) {
+  if (c.isWild) {
+    if (standIn) {
+      // 赖子按替代字符精牌属性计胡
+      if (!JING_CHARS.has(standIn)) return 0;
+      let jH = RED_JING.has(standIn) ? 2 : (BLACK_JING.has(standIn) ? 1 : 0);
+      if (mainJinChar && standIn === mainJinChar) jH *= 2;
+      return jH;
+    }
+    let wH = 2;
+    if (mainJinChar) wH *= 2;
+    return wH;
+  }
+  if (!c.isJin) return 0;
+  let jH = calcJingBase(c.ch, c.v);
+  if (mainJinChar && c.ch === mainJinChar) jH *= 2;
+  return jH;
+}
+
 function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
   const chars = optChars || cards.map(c => c.ch);
   const hasJing = chars.some(ch => JING_CHARS.has(ch));
@@ -5400,32 +5368,17 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
       if (r !== null) return r;
       // 查表未命中(乙九黑精): 逐张计胡
       let h = 0;
-      for (const c of cards) {
-        if (c.isWild) { let wH = 2; if (mainJinChar) wH *= 2; h += wH; continue; }
-        if (!c.isJin) continue;
-        let jH = 0;
-        if (RED_JING.has(c.ch)) jH = c.v === 'flower' ? 2 : 1;
-        else if (BLACK_JING.has(c.ch)) jH = c.v === 'flower' ? 1 : 0;
-        if (mainJinChar && c.ch === mainJinChar) jH *= 2;
-        h += jH;
-      }
+      for (const c of cards) h += calcJingHu(c, mainJinChar);
       return h;
     }
     return 0;
   }
   if (mtype === 'kou') {
     // 口眼(半顺): 含赖子→按替代字符精牌属性计胡; 含精牌→逐张加分; 无精→0胡; 主精翻倍×2
-    if (wc > 0) { let h = 0; for (let ci = 0; ci < cards.length; ci++) { const c = cards[ci]; const standIn = chars[ci]; let jH = 0; if (c.isWild) { if (JING_CHARS.has(standIn)) { if (RED_JING.has(standIn)) jH = 2; else if (BLACK_JING.has(standIn)) jH = 1; if (mainJinChar && standIn === mainJinChar) jH *= 2; } } else if (c.isJin) { if (RED_JING.has(c.ch)) jH = c.v === 'flower' ? 2 : 1; else jH = c.v === 'flower' ? 1 : 0; if (mainJinChar && c.ch === mainJinChar) jH *= 2; } h += jH; } return h; }
+    if (wc > 0) { let h = 0; for (let ci = 0; ci < cards.length; ci++) h += calcJingHu(cards[ci], mainJinChar, chars[ci]); return h; }
     if (!hasJing) return 0;
     let h = 0;
-    for (const c of cards) {
-      if (!c.isJin) continue;
-      let jH = 0;
-      if (RED_JING.has(c.ch)) jH = c.v === 'flower' ? 2 : 1;
-      else if (BLACK_JING.has(c.ch)) jH = c.v === 'flower' ? 1 : 0;
-      if (mainJinChar && c.ch === mainJinChar) jH *= 2;
-      h += jH;
-    }
+    for (const c of cards) h += calcJingHu(c, mainJinChar);
     return h;
   }
   if (mtype === 'kan') {
@@ -5441,7 +5394,7 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     let bonus = 0;
     for (const c of cards) {
       if (c.isWild) bonus += 2;
-      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+      else if (c.isJin) bonus += calcJingBase(c.ch, c.v);
     }
     let hu = base + bonus;
     if (isMain) hu *= 2;
@@ -5460,7 +5413,7 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     let bonus = 0;
     for (const c of cards) {
       if (c.isWild) bonus += 2;
-      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+      else if (c.isJin) bonus += calcJingBase(c.ch, c.v);
     }
     let hu = base + bonus;
     if (isMain) hu *= 2;
@@ -5474,7 +5427,7 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     let bonus = 0;
     for (const c of cards) {
       if (c.isWild) bonus += 2;
-      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+      else if (c.isJin) bonus += calcJingBase(c.ch, c.v);
     }
     let hu = base + bonus;
     if (isMain) hu *= 2;
@@ -5489,7 +5442,7 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     let bonus = 0;
     for (const c of cards) {
       if (c.isWild) bonus += 2;
-      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
+      else if (c.isJin) bonus += calcJingBase(c.ch, c.v);
     }
     let hu = base + bonus;
     if (isMain) hu *= 2;
@@ -5500,22 +5453,8 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     if (!first) return 0;
     const allJing = cards.every(c => c.isWild || c.isJin);
     const base = (!allJing && RED_CHARS.has(first.ch)) ? 1 : 0;
-    let bonus = 0;
-    for (const c of cards) {
-      if (c.isWild) bonus += 2;
-      else if (c.isJin) { if (RED_JING.has(c.ch)) bonus += c.v === 'flower' ? 2 : 1; else bonus += c.v === 'flower' ? 1 : 0; }
-    }
     let hu = base;
-    for (const c of cards) {
-      if (c.isWild) { let wH = 2; if (mainJinChar) wH *= 2; hu += wH; }
-      else if (c.isJin) {
-        let jH = 0;
-        if (RED_JING.has(c.ch)) jH = c.v === 'flower' ? 2 : 1;
-        else jH = c.v === 'flower' ? 1 : 0;
-        if (mainJinChar && c.ch === mainJinChar) jH *= 2;
-        hu += jH;
-      }
-    }
+    for (const c of cards) hu += calcJingHu(c, mainJinChar);
     return hu;
   }
   if (mtype === 'seq') {
@@ -5524,27 +5463,7 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
     const base = isRedSeq ? 1 : 0;
     let bonus = 0;
     for (let ci = 0; ci < cards.length; ci++) {
-      const c = cards[ci];
-      const standIn = chars[ci]; // 赖子所替代的字符
-      if (c.isWild) {
-        // 赖子按所替代字符的精牌属性计胡（而非固定2）
-        if (JING_CHARS.has(standIn)) {
-          let jHu = 0;
-          if (RED_JING.has(standIn)) jHu = 2; // 赖子替代精牌→视为花精
-          else if (BLACK_JING.has(standIn)) jHu = 1; // 赖子替代黑精→视为花精
-          if (mainJinChar && standIn === mainJinChar) jHu *= 2;
-          bonus += jHu;
-        } else {
-          bonus += 0; // 替代非精牌，不计bonus
-        }
-        continue;
-      }
-      if (!c.isJin) continue;
-      let jHu = 0;
-      if (RED_JING.has(c.ch)) jHu = c.v === 'flower' ? 2 : 1;
-      else if (BLACK_JING.has(c.ch)) jHu = c.v === 'flower' ? 1 : 0;
-      if (mainJinChar && c.ch === mainJinChar) jHu *= 2;
-      bonus += jHu;
+      bonus += calcJingHu(cards[ci], mainJinChar, chars[ci]);
     }
     return base + bonus;
   }
@@ -5558,12 +5477,7 @@ function _calcTotalHu(melds, mainJin) {
     const isMain = mainJin && m.cards.some(c => c.ch === mainJin);
     const hu = _calcMeld(m.cards, m.type, isMain, mainJin, m.chars);
     total += hu;
-    // 强制使用FLOWER_DISPLAY确保花牌显示正确
-    var displayChars = m.cards.map(function(c) {
-      if (c.v === 'flower' && FLOWER_DISPLAY[c.ch]) return FLOWER_DISPLAY[c.ch];
-      return displayChar(c);
-    }).join('');
-    breakdown.push({type:m.type, chars:displayChars, hu, label:_meldLabel(m.type)});
+    breakdown.push({type:m.type, chars:m.cards.map(c=>displayChar(c)).join(''), hu, label:_meldLabel(m.type)});
   }
   return {total, breakdown};
 }
@@ -5600,43 +5514,34 @@ function _partition(counts, wildList, wildUsed, handCards, melds, depth, usedSet
   function gfws(n) { const r=[]; for(let i=0;i<wildUsed.length;i++){if(!wildUsed[i]){r.push(i);if(r.length===n)break;}} return r.length===n?r:null; }
   function tc(c,n) { const r=[]; for(const cd of handCards){if(cd.ch===c&&!cd.isWild&&!r.includes(cd)&&!usedSet.has(cd)){r.push(cd);if(r.length===n)break;}} return r; }
 
-  // 1. 坎牌(3同字) — 统牌参与时优先尝试坎牌(更高胡数)，再尝试碰牌
+  // 1. 坎牌(3同字) — 统牌参与时改为碰牌
   if (cnt >= 3) {
     const cd = tc(ch, 3);
     if (cd.length === 3) {
       counts[ch] -= 3; if(counts[ch]===0) delete counts[ch];
-      var tongFlag = cd.some(c => c.isTongCard);
-      // 统牌时优先尝试坎牌(更高胡数)，再尝试碰牌
-      var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
-      for (var _tt = 0; _tt < tryTypes.length; _tt++) {
-        melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:cd});
-        cd.forEach(function(c){usedSet.add(c);});
-        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-        melds.pop(); cd.forEach(function(c){usedSet.delete(c);});
-      }
-      counts[ch] = cnt;
+      const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+      melds.push({type:mtype,chars:[ch,ch,ch],cards:cd});
+      cd.forEach(function(c){usedSet.add(c);});
+      if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+      melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); counts[ch] = cnt;
     }
   }
-  // 3. 含赖子坎(2普通+1赖) — 统牌参与时优先尝试坎牌
+  // 3. 含赖子坎(2普通+1赖) — 统牌参与时改为碰牌
   if (cnt >= 2 && aw > 0 && WILD_USABLE.has(ch)) {
     const fi = gfw();
     if (fi !== null && fi < wildList.length) {
       const cd = tc(ch, 2);
       if (cd.length === 2) {
         wildUsed[fi] = true; counts[ch] -= 2; if(counts[ch]===0) delete counts[ch];
-        var tongFlag = cd.some(c => c.isTongCard);
-        var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
-        for (var _tt = 0; _tt < tryTypes.length; _tt++) {
-          melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:[...cd,wildList[fi]]});
-          cd.forEach(function(c){usedSet.add(c);}); usedSet.add(wildList[fi]);
-          if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-          melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); usedSet.delete(wildList[fi]);
-        }
-        counts[ch] = cnt; wildUsed[fi] = false;
+        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,wildList[fi]]});
+        cd.forEach(function(c){usedSet.add(c);}); usedSet.add(wildList[fi]);
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+        melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); usedSet.delete(wildList[fi]); counts[ch] = cnt; wildUsed[fi] = false;
       }
     }
   }
-  // 4. 纯赖子坎(1普通+2赖) — 统牌参与时优先尝试坎牌
+  // 4. 纯赖子坎(1普通+2赖) — 统牌参与时改为碰牌
   if (cnt >= 1 && aw >= 2 && WILD_USABLE.has(ch)) {
     const fis = gfws(2);
     if (fis && fis.every(i => i < wildList.length)) {
@@ -5644,15 +5549,11 @@ function _partition(counts, wildList, wildUsed, handCards, melds, depth, usedSet
       if (cd.length === 1) {
         fis.forEach(i => wildUsed[i] = true);
         counts[ch] -= 1; if(counts[ch]===0) delete counts[ch];
-        var tongFlag = cd.some(c => c.isTongCard);
-        var tryTypes = tongFlag ? ['kan', 'pen'] : ['kan'];
-        for (var _tt = 0; _tt < tryTypes.length; _tt++) {
-          melds.push({type:tryTypes[_tt],chars:[ch,ch,ch],cards:[...cd,...fis.map(function(i){return wildList[i];})]});
-          cd.forEach(function(c){usedSet.add(c);}); fis.forEach(function(i){usedSet.add(wildList[i]);});
-          if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
-          melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); fis.forEach(function(i){usedSet.delete(wildList[i]);});
-        }
-        counts[ch] = cnt; fis.forEach(function(i){wildUsed[i] = false;});
+        const mtype = cd.some(c => c.isTongCard) ? 'pen' : 'kan';
+        melds.push({type:mtype,chars:[ch,ch,ch],cards:[...cd,...fis.map(function(i){return wildList[i];})]});
+        cd.forEach(function(c){usedSet.add(c);}); fis.forEach(function(i){usedSet.add(wildList[i]);});
+        if (_partition(counts,wildList,wildUsed,handCards,melds,depth+1,usedSet,results)) found = true;
+        melds.pop(); cd.forEach(function(c){usedSet.delete(c);}); fis.forEach(function(i){usedSet.delete(wildList[i]);}); counts[ch] = cnt; fis.forEach(function(i){wildUsed[i] = false;});
       }
     }
   }
@@ -5917,11 +5818,56 @@ function _analyzeHandCore(cards, preMelds) {
     }
   }
 
+  // 两眼尝试（7+2两听）
+  function tryTwoEyes(eye1, eye2) {
+    // 合并两个眼的消耗
+    const removed = Object.assign({}, eye1.removed);
+    for (const [ch, n] of Object.entries(eye2.removed)) {
+      removed[ch] = (removed[ch]||0) + n;
+    }
+    // 检查消耗是否合法（不超过cc中的数量）
+    for (const [ch, n] of Object.entries(removed)) {
+      if ((cc[ch]||0) < n) return;
+    }
+    const totalWildUsed = eye1.wildUsed + eye2.wildUsed;
+    if (totalWildUsed > wildCards.length) return;
+    // 检查第二眼的cards是否与第一眼重叠
+    const usedSet = new Set(eye1.cards);
+    const eye2Cards = [];
+    for (const c of eye2.cards) {
+      if (usedSet.has(c)) return; // 重叠，跳过
+      eye2Cards.push(c);
+    }
+    const cnt = Object.assign({}, cc);
+    for (const [ch, n] of Object.entries(removed)) {
+      cnt[ch] -= n;
+      if (cnt[ch] === 0) delete cnt[ch];
+    }
+    const wu = Array(totalWildUsed).fill(true).concat(Array(wildCards.length - totalWildUsed).fill(false));
+    const wcRem = wildCards.slice(totalWildUsed);
+    const allUsedSet = new Set([...eye1.cards, ...eye2Cards]);
+    const melds = [
+      {type:eye1.type, chars:eye1.cards.map(c=>c.ch), cards:eye1.cards},
+      {type:eye2.type, chars:eye2Cards.map(c=>c.ch), cards:eye2Cards}
+    ];
+    var results = [];
+    if (_partition(cnt, wcRem, wu, normalCards, melds, 0, allUsedSet, results)) {
+      for (var ri = 0; ri < results.length; ri++) tryRes(results[ri]);
+    }
+  }
+
   // 枚举所有眼组合
   const eyeCandidates = enumEyeCandidates(cc, wildCards);
+  // 对子眼候选（用于两听7+2）
+  const pairEyes = eyeCandidates.filter(e => e.type === 'pair');
   // 单眼（8+1摞听）：对子眼和口眼都可以
-  // 注意：花牌胡牌只能是8组型牌+1眼(摞听)，不支持7组+2眼(两听)
   for (const eye of eyeCandidates) trySingleEye(eye);
+  // 两眼（7+2两听）：只使用对子眼，口眼只用于摞听
+  for (let i = 0; i < pairEyes.length; i++) {
+    for (let j = i + 1; j < pairEyes.length; j++) {
+      tryTwoEyes(pairEyes[i], pairEyes[j]);
+    }
+  }
 
   return best;
 }
@@ -6370,10 +6316,8 @@ function showSettlePanel(winnerIdx, winResult, winType) {
       const wildClass = c.isWild ? ' wild-in-meld' : '';
       const flowerClass = c.v === 'flower' ? ' mini-flower' : '';
       const isJing = c.isJin && !c.isWild;
-      // 强制使用FLOWER_DISPLAY确保花牌显示正确
-      var displayCh = displayChar(c);
-      if (c.v === 'flower' && FLOWER_DISPLAY[c.ch]) displayCh = FLOWER_DISPLAY[c.ch];
-      return '<span class="mini-card ' + color + wildClass + flowerClass + '" style="position:relative;">' + displayCh + '</span>';
+      const fpTag = ''; // 花精用大写数字显示(叁伍柒壹玖)，无需额外标签
+      return '<span class="mini-card ' + color + wildClass + flowerClass + '" style="position:relative;">' + displayChar(c) + fpTag + '</span>';
     }).join('');
     meldsHtml += '<div class="settle-meld-group">' +
       '<div class="settle-meld-label">' + _meldLabel(m.type) + '</div>' +
@@ -6518,8 +6462,6 @@ passToNext = function(fromIdx) {
       updateUI();
     });
   } else {
-    // 非庄家回合，确保操作面板隐藏
-    actionsDealer.classList.remove('show');
     if (G.deckCount <= 0) { endGame(); return; }
     setPhase(NAMES[next] + '摸牌出牌中');
     setTimeout(() => opponentAutoPlay(next), 800);
@@ -6530,8 +6472,6 @@ passToNext = function(fromIdx) {
 const _origCheckResponse = checkResponseAfterOpponent;
 checkResponseAfterOpponent = function(fromIdx) {
   console.log("[流程] checkResponseAfterOpponent, from=" + fromIdx + ", char=" + G.lastPlayedChar);
-  // ★ 庄家已过扎牌，非庄家回合时不显示操作按钮，直接流转到下一家
-  if (G._zhaPassed) { setTimeout(() => passToNext(fromIdx), 200); return; }
   const ch = G.lastPlayedChar;
   // 旁家操作期间，允许玩家拖拽手牌整理
   lockHandForOpponent();
@@ -8564,22 +8504,13 @@ updateAILevelDisplay();
 })();
 </script>
 <script>
-  // 首次用户点击时尝试锁定横屏（部分浏览器支持）
-  document.addEventListener('click', function _tryLock() {
-    if (screen && screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('landscape').catch(function(){});
-    }
-    document.removeEventListener('click', _tryLock);
-  }, { once: true });
-
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('./service-worker.js?v=3')
+      navigator.serviceWorker.register('./service-worker.js?v=2')
         .then(function(reg) { console.log('花牌SW已注册:', reg.scope); })
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
     });
   }
-
 </script>
 
 </body>
