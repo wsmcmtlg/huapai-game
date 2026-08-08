@@ -2761,6 +2761,9 @@ function playCard(el) {
   G.round++;
   updateUI();
 
+  // ★ 出牌后清除当回合招/扎/穿/泛牌操作标记，防止按钮持续有效
+  _clearRoundOpFlags();
+
   // 飞行动画
   const flyEl = document.createElement('div');
   const v = variant || '';
@@ -3678,20 +3681,22 @@ function checkDealerZhaAndHu() {
     }
   }
 
-  // ★ 检测穿牌：自由牌中是否有与扎牌同字的第5张（摸到的牌并入自由牌后检测）
+  // ★ 检测穿牌：仅当本回合摸到的牌（G.drawnCard）与扎牌同字（第5张）时才可穿牌
+  // 修复：原条件(counts[cm.char]>=1)在手牌中一直有同字时会误判，导致穿牌按钮持续有效
   var chuanChar = null;
   var chuanIsWildZha = false;
-  if (G.dealerMelds) {
+  if (G.dealerMelds && G.drawnCard) {
+    // 物理穿牌：当回合摸到与扎牌同字的牌
     for (var mi = 0; mi < G.dealerMelds.length; mi++) {
       var cm = G.dealerMelds[mi];
-      if (cm.type === 'zha' && cm.inHand && (counts[cm.char] || 0) >= 1) {
+      if (cm.type === 'zha' && cm.inHand && G.drawnCard.ch === cm.char) {
         chuanChar = cm.char;
         chuanIsWildZha = !!cm.isWildZha;
         break;
       }
     }
-    // 赖子通配穿牌：手中有赖子且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
-    if (!chuanChar && (counts[WILD_CHAR] || 0) > 0) {
+    // 赖子通配穿牌：当回合摸到赖子，且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
+    if (!chuanChar && G.drawnCard.ch === WILD_CHAR) {
       for (var mi = 0; mi < G.dealerMelds.length; mi++) {
         var cm = G.dealerMelds[mi];
         if (cm.type === 'zha' && cm.inHand && WILD_USABLE.has(cm.char)) {
@@ -4439,6 +4444,25 @@ function dealerChuan() {
   }
 }
 
+
+/* ═══ 回合操作校验：清除当回合招/扎/穿/泛牌资格标记，防止按钮持续有效 ═══ */
+function _clearRoundOpFlags() {
+  G._drawnChuanPending = false;
+  G._handChuanChar = null;
+  G._handChuanIsWildZha = null;
+  G._handWildChuan = false;
+  // 隐藏所有未使用的操作按钮
+  var chuanBtn = document.getElementById('btn-chuan');
+  var fanBtn = document.getElementById('btn-fan');
+  var zhaBtn = document.getElementById('btn-zha');
+  var zhaoBtn = document.getElementById('btn-zhao');
+  var penBtn = document.getElementById('btn-pen');
+  if (chuanBtn) chuanBtn.style.display = 'none';
+  if (fanBtn) fanBtn.style.display = 'none';
+  if (zhaBtn) zhaBtn.style.display = 'none';
+  if (zhaoBtn) zhaoBtn.style.display = 'none';
+  if (penBtn) penBtn.style.display = 'none';
+}
 
 /* ═══ 庄家过 ═══ */
 function dealerPass() {
