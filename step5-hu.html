@@ -21,40 +21,66 @@
     font-display: swap;
   }
   :root {
-    --table-bg: #1a472a;
-    --table-felt: #2d6a3f;
-    --card-bg: #f5f0e1;
-    --card-shadow: rgba(0,0,0,0.3);
-    --red: #b91c1c;
+    /* 桌面毡布（明亮卡通麻将） */
+    --table-bg: #14532d;
+    --table-felt: #1e7a3f;
+    --table-felt-light: #2d8f4e;
+    /* 木纹桌边 */
+    --table-rail: #8b5a2b;
+    --table-rail-light: #a9753d;
+    /* 牌面 */
+    --card-bg: #faf5e6;
+    --card-bg-hover: #fffbe9;
+    --card-border: #d4b878;
+    --card-shadow: rgba(0,0,0,0.35);
+    /* 牌字 */
+    --red: #c0392b;
     --black: #1a1a1a;
+    /* 金与强调 */
     --gold: #b8860b;
-    --gold-light: #daa520;
-    --radius: 5px;
+    --gold-light: #d4af37;
+    --gold-deep: #8b6914;
+    --accent: #e67e22;
+    --accent-dark: #d35400;
+    /* 文本 */
+    --text-on-dark: #f5f0e1;
+    /* 系统 */
+    --radius: 8px;
     --font-cn: "KaiTi", "STKaiti", "FangSong", serif;
-    --font-display: "Noto Serif SC", "SimSun", serif;
+    --font-display: "Noto Serif TC", "Noto Serif SC", "SimSun", serif;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     width: 100vw; height: 100vh; overflow: hidden;
     background: var(--table-bg);
-    background-image: radial-gradient(ellipse at 50% 50%, var(--table-felt) 0%, var(--table-bg) 75%);
+    /* 毡布渐变：中心亮绿 → 边缘深墨绿，营造桌面纵深感 */
+    background-image:
+      radial-gradient(ellipse at 50% 45%, var(--table-felt-light) 0%, var(--table-felt) 35%, var(--table-bg) 80%);
     font-family: var(--font-cn);
-    color: #e8e0d0;
+    color: var(--text-on-dark);
   }
-  .table { width: 100%; height: 100%; position: relative; }
+  /* 木纹桌边：四边内边框模拟牌桌围栏 */
+  .table {
+    width: 100%; height: 100%; position: relative;
+    box-shadow:
+      inset 0 0 0 10px var(--table-rail),
+      inset 0 0 0 14px var(--table-rail-light),
+      inset 0 0 30px rgba(0,0,0,0.4);
+  }
 
   /* ═══════ 牌面 ═══════ */
   .card {
     width: 40px; height: 56px; background: var(--card-bg);
-    border-radius: var(--radius); border: 1px solid #d4c9a8;
+    border-radius: var(--radius); border: 1px solid var(--card-border);
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
     position: absolute; cursor: default;
-    box-shadow: 0 1px 3px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    box-shadow: 0 2px 4px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.6);
     user-select: none; z-index: 1;
+    transition: transform 0.15s, box-shadow 0.15s;
   }
   .card::before {
     content: ""; position: absolute; inset: 2px;
-    border: 0.5px solid rgba(180,160,120,0.25); border-radius: 3px; pointer-events: none;
+    border: 0.5px solid rgba(180,160,120,0.3); border-radius: 5px; pointer-events: none;
   }
   /* ═══════ 花精/皮精视觉区分 ═══════ */
   /* 花精：金色内边框装饰 + 暖色底纹 */
@@ -107,6 +133,14 @@
   .card-back-text { font-size: 18px; color: rgba(255,255,255,0.3); font-family: var(--font-display); }
 
   .card.in-hand { cursor: grab; }
+  /* 桌面端手牌悬停：上浮 + 金边（触摸设备自动禁用）*/
+  @media (hover: hover) and (pointer: fine) {
+    .card.in-hand:not(.locked):hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 14px var(--card-shadow), 0 0 0 1.5px var(--card-border);
+      z-index: 6;
+    }
+  }
   .card.in-hand.locked { cursor: not-allowed; opacity: 0.7; pointer-events: none; }
 
   /* 扎牌在手牌区的样式 - 细边框标记+锁死 */
@@ -423,14 +457,14 @@
     font-size: 13px; font-family: var(--font-cn);
     cursor: pointer; transition: all 0.15s; white-space: nowrap;
   }
-  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--gold-light); color: var(--gold-light); }
+  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--accent); color: var(--gold-light); }
   .act-btn.highlight {
-    background: rgba(217,119,6,0.85); border-color: var(--gold); color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border-color: var(--gold); color: #fff;
     animation: pulse 0.8s infinite;
   }
   @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.4); }
-    50% { box-shadow: 0 0 8px 2px rgba(217,119,6,0.6); }
+    0%,100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.4); }
+    50% { box-shadow: 0 0 8px 2px rgba(230,126,34,0.6); }
   }
   .panel-bottom { bottom: 175px; left: 50%; transform: translateX(-50%); }
 
