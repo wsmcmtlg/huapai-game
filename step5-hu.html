@@ -3596,6 +3596,16 @@ function dealerFan() {  actionsDealer.classList.remove('show');
   SoundManager.play('fan'); SoundManager.play('v_fan');
   addLog(NAMES[0], '泛', fanChar);
 
+  // ★ 修复：泛牌补摸前，若暂存区还有未处理的牌（如刚摸未出），先并入自由牌，避免补摸动画清除丢牌(小相公)
+  if (G.drawnCard && (!fanCard || G.drawnCard !== fanCard)) {
+    var mergeCard = G.drawnCard;
+    if (G.drawnEl && G.drawnEl.parentNode) G.drawnEl.remove();
+    createCardEl(mergeCard, 0, 0);
+    handCards.push(mergeCard);
+    G.drawnCard = null; G.drawnEl = null;
+    rearrangeHand();
+  }
+
   // 泛牌后需要补牌（摸牌顶）
   if (G.deckCount > 0) {
     var drawnCh = G.deck.pop();
