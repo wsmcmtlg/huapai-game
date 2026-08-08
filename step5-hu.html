@@ -6808,8 +6808,7 @@ dealerPass = function() {
   var isOpponentDiscard = penVisible || zhaoVisible || huVisible;
 
   if (isOpponentDiscard) {
-    // 旁家出牌后庄家过牌 → 检查旁家碰牌/流转
-    addLog(NAMES[0], '过', '');
+    // 旁家出牌后庄家过牌 → 检查旁家碰牌/流转（原版内部会记录"过"日志，此处不重复记录）
     _origDealerPass();
   } else {
     // 自摸后庄家过牌（不做扎/泛/胡）→ 让庄家正常出牌
