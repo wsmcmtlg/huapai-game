@@ -1,5 +1,5 @@
 // 公安花牌 Service Worker - 缓存策略
-const CACHE_NAME = 'huapa-v3';
+const CACHE_NAME = 'huapa-v4';
 const ASSETS = [
   './step5-hu.html',
   './manifest.json',
@@ -29,23 +29,32 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// 请求：缓存优先（离线优先）
+// 请求：HTML 网络优先（保证最新版），静态资源 stale-while-revalidate（后台更新）
 self.addEventListener('fetch', (e) => {
+  // HTML 页面导航：网络优先，失败回退缓存
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then((resp) => {
+        if (resp.status === 200) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+        }
+        return resp;
+      }).catch(() => caches.match('./step5-hu.html'))
+    );
+    return;
+  }
+  // 静态资源：先返回缓存，后台拉取最新更新缓存
   e.respondWith(
     caches.match(e.request).then((cached) => {
-      return cached || fetch(e.request).then((resp) => {
-        // 对同源请求进行运行时缓存
+      const network = fetch(e.request).then((resp) => {
         if (resp.status === 200 && e.request.url.startsWith(self.location.origin)) {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
         }
         return resp;
-      });
-    }).catch(() => {
-      // 离线降级：HTML请求返回缓存首页
-      if (e.request.mode === 'navigate') {
-        return caches.match('./step5-hu.html');
-      }
+      }).catch(() => cached);
+      return cached || network;
     })
   );
 });
