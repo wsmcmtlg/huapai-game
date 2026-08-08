@@ -3681,22 +3681,22 @@ function checkDealerZhaAndHu() {
     }
   }
 
-  // ★ 检测穿牌：仅当本回合摸到的牌（G.drawnCard）与扎牌同字（第5张）时才可穿牌
-  // 修复：原条件(counts[cm.char]>=1)在手牌中一直有同字时会误判，导致穿牌按钮持续有效
+  // ★ 检测穿牌：只要有 inHand 扎牌 且 手牌/暂存中仍有同字（第5张），庄家每次摸牌后均有穿牌权
+  // 规则：穿牌权在「扎牌存在 + 手牌有同字」期间持续存在（每回合摸牌后检测），同一张牌仅能穿牌一次（执行后升级为穿牌）
   var chuanChar = null;
   var chuanIsWildZha = false;
-  if (G.dealerMelds && G.drawnCard) {
-    // 物理穿牌：当回合摸到与扎牌同字的牌
+  if (G.dealerMelds) {
+    // 物理穿牌：手牌/暂存中有与扎牌同字的牌（第5张）
     for (var mi = 0; mi < G.dealerMelds.length; mi++) {
       var cm = G.dealerMelds[mi];
-      if (cm.type === 'zha' && cm.inHand && G.drawnCard.ch === cm.char) {
+      if (cm.type === 'zha' && cm.inHand && (counts[cm.char] || 0) >= 1) {
         chuanChar = cm.char;
         chuanIsWildZha = !!cm.isWildZha;
         break;
       }
     }
-    // 赖子通配穿牌：当回合摸到赖子，且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
-    if (!chuanChar && G.drawnCard.ch === WILD_CHAR) {
+    // 赖子通配穿牌：手中有赖子且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
+    if (!chuanChar && (counts[WILD_CHAR] || 0) > 0) {
       for (var mi = 0; mi < G.dealerMelds.length; mi++) {
         var cm = G.dealerMelds[mi];
         if (cm.type === 'zha' && cm.inHand && WILD_USABLE.has(cm.char)) {
