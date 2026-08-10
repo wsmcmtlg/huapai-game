@@ -3690,24 +3690,45 @@ function checkDealerZhaAndHu() {
   // 规则：穿牌权在「扎牌存在 + 手牌有同字」期间持续存在（每回合摸牌后检测），同一张牌仅能穿牌一次（执行后升级为穿牌）
   var chuanChar = null;
   var chuanIsWildZha = false;
+  // ★ 穿牌模式标记：供 dealerChuan 正确区分穿牌来源（手牌物理/手牌赖子/暂存）
+  G._handChuanChar = null;
+  G._handChuanIsWildZha = null;
+  G._handWildChuan = false;
   if (G.dealerMelds) {
-    // 物理穿牌：手牌/暂存中有与扎牌同字的牌（第5张）
+    // 遍历 inHand 扎牌
     for (var mi = 0; mi < G.dealerMelds.length; mi++) {
       var cm = G.dealerMelds[mi];
-      if (cm.type === 'zha' && cm.inHand && (counts[cm.char] || 0) >= 1) {
+      if (cm.type !== 'zha' || !cm.inHand) continue;
+      // 1. 手牌中（不含暂存）有与扎牌同字的牌 → 手牌物理穿牌
+      if (handCards.some(function(c) { return c.ch === cm.char; })) {
         chuanChar = cm.char;
         chuanIsWildZha = !!cm.isWildZha;
+        G._handChuanChar = cm.char;
+        G._handChuanIsWildZha = chuanIsWildZha;
+        break;
+      }
+      // 2. 手牌中有赖子 且 扎牌字在WILD_USABLE(三五七) → 手牌赖子通配穿牌
+      if (handCards.some(function(c) { return c.ch === WILD_CHAR; }) && WILD_USABLE.has(cm.char)) {
+        chuanChar = cm.char;
+        chuanIsWildZha = !!cm.isWildZha;
+        G._handWildChuan = true;
         break;
       }
     }
-    // 赖子通配穿牌：手中有赖子且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
-    if (!chuanChar && (counts[WILD_CHAR] || 0) > 0) {
-      for (var mi = 0; mi < G.dealerMelds.length; mi++) {
-        var cm = G.dealerMelds[mi];
-        if (cm.type === 'zha' && cm.inHand && WILD_USABLE.has(cm.char)) {
-          chuanChar = cm.char;
-          chuanIsWildZha = !!cm.isWildZha;
-          break;
+    // 3. 手牌无来源，检查暂存区（G.drawnCard 与扎牌同字或为赖子）
+    if (!chuanChar && G.drawnCard) {
+      for (var mi2 = 0; mi2 < G.dealerMelds.length; mi2++) {
+        var cm2 = G.dealerMelds[mi2];
+        if (cm2.type === 'zha' && cm2.inHand && cm2.char === G.drawnCard.ch) {
+          chuanChar = cm2.char; chuanIsWildZha = !!cm2.isWildZha; break;
+        }
+      }
+      if (!chuanChar && G.drawnCard.ch === WILD_CHAR) {
+        for (var mi2 = 0; mi2 < G.dealerMelds.length; mi2++) {
+          var cm2 = G.dealerMelds[mi2];
+          if (cm2.type === 'zha' && cm2.inHand && WILD_USABLE.has(cm2.char)) {
+            chuanChar = cm2.char; chuanIsWildZha = !!cm2.isWildZha; break;
+          }
         }
       }
     }
