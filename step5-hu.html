@@ -2842,11 +2842,21 @@ function unlockHand() {
 
 /* ═══ 拖动 ═══ */
 let drag = null, dragMoved = false, dragStartPos = null;
+let lastTap = null; // 移动端双击出牌检测（350ms 内同一牌第二次触摸）
 function onDown(e) {
   e.preventDefault(); dragStartPos = {x:e.clientX,y:e.clientY}; beginDrag(e.currentTarget, e.clientX, e.clientY);
 }
 function onTouchDown(e) {
-  e.preventDefault(); const t=e.touches[0]; dragStartPos = {x:t.clientX,y:t.clientY}; beginDrag(e.currentTarget, t.clientX, t.clientY);
+  e.preventDefault(); const t=e.touches[0]; const el=e.currentTarget; const now=Date.now();
+  // 移动端双击出牌：350ms 内同一张牌第二次触摸即出牌（触摸设备不产生 dblclick）
+  if (!dragMoved && lastTap && lastTap.el===el && now-lastTap.time < 350) {
+    lastTap = null;
+    if (drag) { drag.el.classList.remove('dragging'); drag=null; dragMoved=false; }
+    if (!G.locked && !G.gameOver) playCard(el);
+    return;
+  }
+  lastTap = {el, time: now};
+  dragStartPos = {x:t.clientX,y:t.clientY}; beginDrag(el, t.clientX, t.clientY);
 }
 function beginDrag(el, cx, cy) {
   const r = handZone.getBoundingClientRect();
