@@ -1230,22 +1230,39 @@
     }
  
   /* ═══════ 竖屏手机适配（≤768px 竖屏，修复 P0：溢出/遮挡/工具条）═══════ */
+  /* ═══════ 竖屏手机适配（≤768px 竖屏，重排顶部 + 动态视口 + 安全区）═══════ */
   @media (max-width: 768px) and (orientation: portrait) {
+    /* 动态视口：跟随浏览器地址栏收缩，避免底部手牌被遮挡 */
+    .table, html, body { height: 100dvh; min-height: 100dvh; }
+    /* ── 顶部重排：玩家信息两侧 + 状态栏第二行居中 + 工具右上 ── */
+    .player-info { max-width: 92px; line-height: 1.35; }
+    #pi-left  { top: 8px !important; left: 8px !important; }
+    #pi-right { top: 8px !important; right: 8px !important; }
+    /* 状态栏：下移到第二行居中，不再遮挡两侧玩家信息 */
+    .z-game-status {
+      top: 46px; left: 50%; transform: translateX(-50%);
+      min-width: 0; max-width: 62vw; font-size: 9px; padding: 4px 8px;
+    }
     /* 底部明牌区：max-width 防横向溢出 */
     .z-meld-bottom { width: auto; max-width: calc(100vw - 16px); }
-    /* 庄家信息/字体/图片按钮：上移到手牌区上方，不遮手牌 */
-    #pi-bottom { bottom: 148px !important; left: 6px !important; padding: 3px 8px; font-size: 10px; line-height: 1.4; }
-    .font-toggle { bottom: 148px !important; left: 40% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    .card-img-toggle { bottom: 148px !important; left: 52% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    /* 工具条：移到视口内（底部上方），避免垂直溢出 */
-    .tool-bar { bottom: 154px; right: 8px; }
-    .tool-btn { font-size: 11px; padding: 4px 8px; }
-    /* 顶部状态栏：压缩为两行紧凑 */
-    .z-game-status { font-size: 10px; padding: 6px 10px; line-height: 1.5; min-width: 0; max-width: 56vw; }
-    /* 顶部余牌与玩家信息错开 */
-    #pi-left, #pi-right { font-size: 10px; padding: 3px 6px; }
-    .player-info .p-stats { font-size: 9px; }
+    /* 余牌/音量/日志：组合到右上角竖排，互不遮挡 */
+    .z-deck { top: 46px; left: auto; right: 8px; padding: 2px 6px; }
+    .z-deck .draw-pile { display: none; }
+    .sound-toggle { top: 40px; right: 8px; left: auto; width: 30px; height: 30px; }
+    .log-bar { top: 74px; right: 8px; left: auto; max-width: 44vw; font-size: 9px; padding: 3px 6px; }
+    /* 底部安全区：手牌上移预留导航栏/手势条 */
+    .hand-zone { bottom: calc(10px + env(safe-area-inset-bottom)); }
+    #pi-bottom { bottom: calc(148px + env(safe-area-inset-bottom)) !important; left: 6px !important; }
+    .font-toggle { bottom: calc(148px + env(safe-area-inset-bottom)) !important; left: 40% !important; }
+    .card-img-toggle { bottom: calc(148px + env(safe-area-inset-bottom)) !important; left: 52% !important; }
+    .tool-bar { bottom: calc(154px + env(safe-area-inset-bottom)); }
+    .z-lock-area { bottom: calc(132px + env(safe-area-inset-bottom)); }
+    .tip-bar { bottom: calc(168px + env(safe-area-inset-bottom)); }
+    .panel-bottom { bottom: calc(174px + env(safe-area-inset-bottom)); }
+    /* 操作按钮/提示文字不截断 */
+    .act-btn { min-height: 44px; min-width: 44px; padding: 6px 14px; font-size: 16px; white-space: nowrap; }
   }
+
  }
 
 
