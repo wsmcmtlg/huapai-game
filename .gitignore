@@ -1,0 +1,3 @@
+# 防回归测试提取生成物（run_all.sh 每次自动重新生成）
+hu_tests/hu_core_current.js
+hu_tests/hu_core_before.js

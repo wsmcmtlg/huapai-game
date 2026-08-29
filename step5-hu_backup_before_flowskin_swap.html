@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>公安花牌</title>
   <meta name="theme-color" content="#1a472a">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1194,30 +1194,11 @@
       font-size: 13px;
       min-height: 32px;
     }
- 
-  /* ═══════ 竖屏手机适配（≤768px 竖屏，修复 P0：溢出/遮挡/工具条）═══════ */
-  @media (max-width: 768px) and (orientation: portrait) {
-    /* 底部明牌区：max-width 防横向溢出 */
-    .z-meld-bottom { width: auto; max-width: calc(100vw - 16px); }
-    /* 庄家信息/字体/图片按钮：上移到手牌区上方，不遮手牌 */
-    #pi-bottom { bottom: 148px !important; left: 6px !important; padding: 3px 8px; font-size: 10px; line-height: 1.4; }
-    .font-toggle { bottom: 148px !important; left: 40% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    .card-img-toggle { bottom: 148px !important; left: 52% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    /* 工具条：移到视口内（底部上方），避免垂直溢出 */
-    .tool-bar { bottom: 154px; right: 8px; }
-    .tool-btn { font-size: 11px; padding: 4px 8px; }
-    /* 顶部状态栏：压缩为两行紧凑 */
-    .z-game-status { font-size: 10px; padding: 6px 10px; line-height: 1.5; min-width: 0; max-width: 56vw; }
-    /* 顶部余牌与玩家信息错开 */
-    #pi-left, #pi-right { font-size: 10px; padding: 3px 6px; }
-    .player-info .p-stats { font-size: 9px; }
   }
- }
 
 
 
-  
-/* ── 见好就收退出按钮 ── */
+  /* ── 见好就收退出按钮 ── */
   .quit-btn {
     padding: 10px 24px;
     font-size: 16px;
@@ -1595,126 +1576,6 @@
 .use-card-img .card[data-img="土"] { background-image: url('cards/土.png'); }
 .use-card-img .card[data-img="赖"] { background-image: url('cards/赖.png'); }
 
-  /* ═══════ 横屏手机适配（横屏为主要方案：高<=520px 视为手机横屏）═══════ */
-  /* 置于 style 闭合标签之前，确保覆盖 .sound-toggle/.font-toggle/.card-img-toggle 等后定义规则 */
-  @media (orientation: landscape) and (max-height: 520px) {
-    /* 卡片缩小（JS CARD_W/CARD_H/STEP_X 已响应式跟随） */
-    .card {
-      width: 34px; height: 47px;
-      font-size: 15px; font-weight: 600; letter-spacing: -0.3px;
-    }
-    .card .ch { font-size: 17px; font-weight: 700; }
-    .card .label { font-size: 9px; font-weight: 600; }
-    .card .skin-ch { font-size: 17px; font-weight: 700; }
-    /* 顶部：左右玩家信息 + 中央状态栏单行（互不重叠） */
-    .player-info { padding: 3px 8px; font-size: 10px; line-height: 1.4; }
-    #pi-left  { top: 6px !important; left: 8px !important; }
-    #pi-right { top: 6px !important; right: 8px !important; }
-    .player-info .p-stats { font-size: 9px; }
-    .z-game-status {
-      top: 6px; left: 50%; transform: translateX(-50%);
-      display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
-      gap: 2px 10px; padding: 3px 10px; font-size: 10px; line-height: 1.5;
-      min-width: 0; max-width: 44vw; z-index: 30; border-radius: 6px;
-    }
-    .z-game-status > div { display: flex; align-items: center; white-space: nowrap; }
-    /* 余牌：右上角（玩家信息下方），只显数字不显牌背 */
-    .z-deck {
-      top: 42px; left: auto; right: 8px; transform: none;
-      padding: 2px 8px; gap: 4px; z-index: 30;
-    }
-    .z-deck .draw-pile { display: none; }
-    .z-deck .draw-count { font-size: 12px; }
-    /* 音量按钮：右上角（玩家信息下方、余牌左侧） */
-    .sound-toggle { top: 42px !important; right: 92px !important; left: auto !important; width: 30px; height: 30px; font-size: 15px; }
-    /* 操作日志：右上角（余牌下方） */
-    .log-bar { top: 74px; right: 8px; left: auto; transform: none; max-width: 30vw; font-size: 10px; padding: 3px 8px; z-index: 30; }
-    /* 边家手牌/明牌：压缩高度，顶部对齐 */
-    .side-hand-zone { width: 120px; height: 260px; }
-    .side-hand-zone .hand .card + .card { margin-left: -6px; }
-    .side-meld-zone { width: 80px; height: 260px; }
-    /* 底部手牌区 */
-    .hand-zone { width: 92vw; height: 118px; bottom: 6px; }
-    .hand-zone-hint { font-size: 8px; top: 2px; }
-    /* 庄家信息/字体/图片按钮：上移到手牌区上方，不遮手牌（!important 覆盖 inline/后定义） */
-    #pi-bottom { bottom: 128px !important; left: 6px !important; padding: 3px 8px; font-size: 10px; line-height: 1.4; }
-    .font-toggle { bottom: 128px !important; left: 40% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    .card-img-toggle { bottom: 128px !important; left: 52% !important; height: 24px; font-size: 11px; padding: 0 8px; }
-    /* 底部堆叠区：压缩并错开（锁牌/底部明牌/操作按钮/tip） */
-    .z-lock-area { bottom: 132px; gap: 4px; min-height: 36px; }
-    .lock-group .lock-top .card { width: 24px; height: 33px; }
-    .lock-group .lock-top .card .card-char { font-size: 16px; }
-    .z-meld-bottom {
-      bottom: 172px; width: auto; max-width: calc(100vw - 16px);
-      left: 50%; transform: translateX(-50%); gap: 6px;
-    }
-    .z-meld-bottom .meld-group .card { width: 22px; height: 31px; }
-    .z-meld-bottom .card-char { font-size: 14px; }
-    .panel-bottom { bottom: 174px; }
-    .tip-bar { bottom: 168px; font-size: 9px; padding: 2px 8px; }
-    /* 弃牌区 */
-    .z-discard { top: 42%; max-width: 46vw; max-height: 24vh; }
-    .z-discard .card { width: 24px; height: 34px; }
-    .z-discard .card-char { font-size: 16px; }
-    /* 操作按钮 */
-    .action-panel { gap: 3px; padding: 4px 8px; }
-    .act-btn { padding: 4px 12px; font-size: 15px; min-width: 40px; min-height: 38px; border-radius: 6px; }
-    .act-btn.win-btn { font-size: 17px; min-height: 40px; }
-    /* 工具条（查听牌/查结算/战绩/发言）：横屏改横排移到顶部中央下方，避免遮挡底部手牌 */
-    .tool-bar {
-      flex-direction: row; gap: 6px; align-items: center;
-      top: 38px; left: 50%; transform: translateX(-50%); right: auto; bottom: auto;
-    }
-    .tool-btn { font-size: 11px; padding: 4px 10px; height: 26px; }
-
-  }
-
-
-  /* ═══════ P1 移动端增强（安全区/触控/防缩放滚动/弹窗/长按看牌）═══════ */
-  /* 防双击缩放 & 防回弹（全局，桌面无触屏不受影响） */
-  html, body {
-    touch-action: manipulation;
-    overscroll-behavior: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  /* 安全区：底部手势条/顶部刘海 */
-  body { padding-bottom: env(safe-area-inset-bottom); }
-  @media (orientation: landscape) and (max-height: 520px) {
-    .hand-zone { bottom: calc(6px + env(safe-area-inset-bottom)); }
-    .tool-bar { top: calc(38px + env(safe-area-inset-top)); }
-    .z-deck, .log-bar, .sound-toggle { right: calc(8px + env(safe-area-inset-right)); }
-  }
-  @media (max-width: 768px) and (orientation: portrait) {
-    .hand-zone { bottom: calc(6px + env(safe-area-inset-bottom)); }
-    .tool-bar { bottom: calc(154px + env(safe-area-inset-bottom)); }
-  }
-  /* 触控目标：竖屏 ≥44px、横屏 ≥40px（390 高空间有限） */
-  @media (max-width: 768px) and (orientation: portrait) {
-    .act-btn { min-height: 44px; min-width: 44px; padding: 6px 14px; font-size: 16px; }
-    .act-btn.win-btn { min-height: 46px; font-size: 18px; }
-    .zha-pick-btn { min-height: 44px; padding: 8px 16px; }
-    .lock-group .lock-top .card { width: 30px; height: 42px; }
-    .lock-group .lock-top .card .card-char { font-size: 20px; }
-    .sound-toggle { width: 38px; height: 38px; font-size: 17px; }
-  }
-  @media (orientation: landscape) and (max-height: 520px) {
-    .act-btn { min-height: 40px; min-width: 40px; }
-    .zha-pick-btn { min-height: 40px; padding: 8px 14px; }
-  }
-  /* 弹窗适配（移动端不超屏、可滚动） */
-  @media (max-width: 768px) and (orientation: portrait), (orientation: landscape) and (max-height: 520px) {
-    .sound-settings-panel { max-width: min(92vw, 420px); min-width: 0; }
-    .zha-pick-overlay { min-width: 0; max-width: 92vw; padding: 14px 16px; }
-    .zha-pick-options { flex-wrap: wrap; }
-    .stats-panel, .settle-panel, .popup-panel { max-height: 85vh; }
-  }
-  /* 长按看牌：移动端缩小放大倍数，避免超出屏幕 */
-  @media (max-width: 768px) and (orientation: portrait), (orientation: landscape) and (max-height: 520px) {
-    .card.in-hand.card-zoomed {
-      transform: scale(1.6) translateY(-22px);
-      transform-origin: 50% 100%;
-    }
-  }
 </style>
 </head>
 <body>
@@ -2147,19 +2008,7 @@ function setAILevel(level) {
    Step4: 摸牌可视化 + 完整回合流转 + 流局检测
    ═══════════════════════════════════════════════════ */
 
-var CARD_W = 40, CARD_H = 56, STEP_X = 40;
-// 移动端手牌布局常量响应式：跟随 CSS 实际卡片尺寸，避免固定像素导致手牌错位/溢出
-function updateCardMetrics() {
-  if (window.innerWidth <= 1000) {
-    var el = handZone && handZone.querySelector('.card');
-    if (el) {
-      var r = el.getBoundingClientRect();
-      if (r.width > 8) { CARD_W = r.width; CARD_H = r.height; STEP_X = Math.round(r.width); }
-      return;
-    }
-  }
-  CARD_W = 40; CARD_H = 56; STEP_X = 40;
-}
+const CARD_W = 40, CARD_H = 56, STEP_X = 40;
 const handZone = document.getElementById('hand-zone');
 const discardPool = document.getElementById('discard-pool');
 const tipBar = document.getElementById('tip-bar');
@@ -2544,7 +2393,6 @@ const cardEls = [];
 
 /* ═══ 初始化 ═══ */
 function initGame() {
-  updateCardMetrics();
     invalidateHoverTingCache();
 
   G.deck = generateDeck();
@@ -5420,23 +5268,15 @@ const JING_RED_TABLE = {
     '2_0_0': 4,  '1_1_0': 3,  '0_2_0': 2,
   },
   'kan': {
-    // 含赖子（赖=花精，仅红精三五七）
     '1_0_2': 12, '2_0_1': 9,  '0_1_2': 7,  '1_1_1': 7,  '0_2_1': 6,
-    // 纯精牌（无赖子；补齐后与反馈版/计分引擎一致，原靠兜底算对）
-    '2_1_0': 7,  '1_2_0': 6,  '0_3_0': 5,
   },
   'zhao': {
     '2_2_0': 14, '2_0_2': 24, '1_1_2': 18, '2_1_1': 18,
     '0_2_2': 14, '1_2_1': 14, '1_3_0': 12, '0_3_1': 12,
   },
   'chuan': {
-    // key = 花数_皮数_赖数；每种精牌最多3皮2花、赖子全局最多2张，故可达组合恰6种（速查表V3反馈版）
-    '0_3_2': 28,  // 3皮2赖
-    '1_3_1': 28,  // 3皮1花1赖
-    '2_3_0': 28,  // 3皮2花
-    '1_2_2': 36,  // 2皮1花2赖
-    '2_2_1': 36,  // 2皮2花1赖
-    '2_1_2': 48,  // 1皮2花2赖
+    '2_3_0': 28, '2_2_1': 36, '2_1_2': 48,
+    '1_3_1': 28, '1_2_2': 36,
   },
 };
 
@@ -5446,7 +5286,7 @@ const JING_BLACK_TABLE = {
     '2_0_0': 2,  '1_1_0': 1,  '0_2_0': 0,
   },
   'kan': {
-    '2_1_0': 3,  '1_2_0': 2,  '0_3_0': 1,  // 1皮2花 / 2皮1花 / 3皮（修正key，原key从未命中靠兜底）
+    '2_0_0': 3,  '1_1_0': 2,  '0_2_0': 1,
   },
   'zhao': {
     '1_3_0': 3,  '2_2_0': 4,
@@ -5856,89 +5696,6 @@ function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
           var result = _analyzeHandInner(newCards, newPreMelds, false);
           if (result && (!best || result.totalHu > best.totalHu)) best = result;
         }
-      }
-    }
-    // ★ 同字花/皮重分配优化：穿牌/泛牌/扎牌内固化的物理同字牌可与手牌同字牌交换花皮配比
-    // 穿牌成型时固化的花/皮/赖构成未必按最大胡原则，胡牌拆牌时按最大胡枚举重分配。
-    // 不依赖手牌赖子：即使唯一赖子已在穿牌内、手牌无赖，也能把花精从口眼/其他自由牌换进穿牌提升胡数。
-    for (var sti2 = 0; sti2 < swapTargets.length; sti2++) {
-      var targetIdx2 = swapTargets[sti2];
-      var targetMeld2 = preMelds[targetIdx2];
-      // 确定字面X（第一张非赖子牌的ch）
-      var xChar2 = null;
-      for (var ciA = 0; ciA < targetMeld2.cards.length; ciA++) {
-        if (!targetMeld2.cards[ciA].isWild) { xChar2 = targetMeld2.cards[ciA].ch; break; }
-      }
-      if (!xChar2) continue;
-      // 收集 meld 内字面X非赖子牌的位置（穿牌/泛牌赖子通配三五七，扎牌字面X在WILD_USABLE时才含赖）
-      var meldXPos2 = [];
-      for (var ciA = 0; ciA < targetMeld2.cards.length; ciA++) {
-        if (!targetMeld2.cards[ciA].isWild && targetMeld2.cards[ciA].ch === xChar2) meldXPos2.push(ciA);
-      }
-      var nPhys2 = meldXPos2.length; // meld 内需保持的X物理牌数（赖子数随之保持不变）
-      if (nPhys2 === 0) continue;
-      // 收集手牌中字面X的非赖子牌位置
-      var handXPos2 = [];
-      for (var ciB = 0; ciB < cards.length; ciB++) {
-        var cB = cards[ciB];
-        if (cB.ch === xChar2 && !cB.isWild) handXPos2.push(ciB);
-      }
-      if (handXPos2.length === 0) continue; // 手牌无同字牌，无交换空间
-      // 物理牌池 = meld内X牌 + 手牌X牌（同字面每字最多5张，组合数极小）
-      var pool2 = [];
-      for (var pi = 0; pi < meldXPos2.length; pi++) pool2.push({src: 'm', pos: meldXPos2[pi]});
-      for (var pi = 0; pi < handXPos2.length; pi++) pool2.push({src: 'h', pos: handXPos2[pi]});
-      // 枚举从 pool2 选 nPhys2 个组合
-      var combos2 = [];
-      (function genCombo2(arr, n, start, cur, res) {
-        if (cur.length === n) { res.push(cur.slice()); return; }
-        for (var i = start; i < arr.length; i++) { cur.push(arr[i]); genCombo2(arr, n, i + 1, cur, res); cur.pop(); }
-      })(pool2, nPhys2, 0, [], combos2);
-      // 花皮签名去重：同一花皮配比下剩余手牌由总数唯一决定，只需试一次
-      var seenSig2 = new Set();
-      for (var k2 = 0; k2 < combos2.length; k2++) {
-        var combo2 = combos2[k2];
-        var fCnt2 = 0, sCnt2 = 0, fromHand2 = 0;
-        for (var q = 0; q < combo2.length; q++) {
-          var pc2 = combo2[q].src === 'm' ? targetMeld2.cards[combo2[q].pos] : cards[combo2[q].pos];
-          if (pc2.v === 'flower') fCnt2++; else sCnt2++;
-          if (combo2[q].src === 'h') fromHand2++;
-        }
-        if (fromHand2 === 0) continue; // 全部用 meld 原牌，与当前一致
-        var sig2 = fCnt2 + '_' + sCnt2;
-        if (seenSig2.has(sig2)) continue;
-        seenSig2.add(sig2);
-        // 构造新 meld cards：保持赖子位置，X物理牌按原位置填充（用选中组合）
-        var meldSelSet2 = new Set();
-        var handSel2 = [];
-        for (var q = 0; q < combo2.length; q++) {
-          if (combo2[q].src === 'm') meldSelSet2.add(combo2[q].pos);
-          else handSel2.push(cards[combo2[q].pos]);
-        }
-        var hi2 = 0;
-        var newMeldCards2 = [];
-        for (var ciA = 0; ciA < targetMeld2.cards.length; ciA++) {
-          var cc2 = targetMeld2.cards[ciA];
-          if (cc2.isWild) { newMeldCards2.push(cc2); continue; }
-          if (meldSelSet2.has(ciA)) { newMeldCards2.push(cc2); }
-          else { newMeldCards2.push(handSel2[hi2++]); }
-        }
-        // 手牌：移除被选入 meld 的手牌，加入 meld 中释放的X物理牌
-        var handUsed2 = new Set();
-        for (var q = 0; q < combo2.length; q++) if (combo2[q].src === 'h') handUsed2.add(combo2[q].pos);
-        var newCards2 = [];
-        for (var ciB = 0; ciB < cards.length; ciB++) {
-          if (!handUsed2.has(ciB)) newCards2.push(cards[ciB]);
-        }
-        for (var ciA = 0; ciA < targetMeld2.cards.length; ciA++) {
-          var cc3 = targetMeld2.cards[ciA];
-          if (!cc3.isWild && !meldSelSet2.has(ciA)) newCards2.push(cc3);
-        }
-        var newMeldChars2 = newMeldCards2.map(function(c) { return c.ch; });
-        var newPreMelds2 = preMelds.slice();
-        newPreMelds2[targetIdx2] = Object.assign({}, targetMeld2, {cards: newMeldCards2, chars: newMeldChars2});
-        var result2 = _analyzeHandInner(newCards2, newPreMelds2, false);
-        if (result2 && (!best || result2.totalHu > best.totalHu)) best = result2;
       }
     }
   } else {
@@ -8745,20 +8502,6 @@ updateAILevelDisplay();
     zoomedCard = null;
   }, true);
 })();
-
-// ═══════ 移动端适配：窗口尺寸/方向变化时重算卡片尺寸并重排手牌 ═══════
-var _mresizeTimer = null;
-function _onViewportChange() {
-  clearTimeout(_mresizeTimer);
-  _mresizeTimer = setTimeout(function() {
-    updateCardMetrics();
-    if (typeof rearrangeHand === 'function') rearrangeHand();
-  }, 200);
-}
-window.addEventListener('resize', _onViewportChange);
-window.addEventListener('orientationchange', function() {
-  setTimeout(_onViewportChange, 250);
-});
 </script>
 <script>
   if ('serviceWorker' in navigator) {
