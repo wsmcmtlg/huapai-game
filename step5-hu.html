@@ -21,40 +21,66 @@
     font-display: swap;
   }
   :root {
-    --table-bg: #1a472a;
-    --table-felt: #2d6a3f;
-    --card-bg: #f5f0e1;
-    --card-shadow: rgba(0,0,0,0.3);
-    --red: #b91c1c;
+    /* 桌面毡布（明亮卡通麻将） */
+    --table-bg: #14532d;
+    --table-felt: #1e7a3f;
+    --table-felt-light: #2d8f4e;
+    /* 木纹桌边 */
+    --table-rail: #8b5a2b;
+    --table-rail-light: #a9753d;
+    /* 牌面 */
+    --card-bg: #faf5e6;
+    --card-bg-hover: #fffbe9;
+    --card-border: #d4b878;
+    --card-shadow: rgba(0,0,0,0.35);
+    /* 牌字 */
+    --red: #c0392b;
     --black: #1a1a1a;
+    /* 金与强调 */
     --gold: #b8860b;
-    --gold-light: #daa520;
-    --radius: 5px;
+    --gold-light: #d4af37;
+    --gold-deep: #8b6914;
+    --accent: #e67e22;
+    --accent-dark: #d35400;
+    /* 文本 */
+    --text-on-dark: #f5f0e1;
+    /* 系统 */
+    --radius: 8px;
     --font-cn: "KaiTi", "STKaiti", "FangSong", serif;
-    --font-display: "Noto Serif SC", "SimSun", serif;
+    --font-display: "Noto Serif TC", "Noto Serif SC", "SimSun", serif;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     width: 100vw; height: 100vh; overflow: hidden;
     background: var(--table-bg);
-    background-image: radial-gradient(ellipse at 50% 50%, var(--table-felt) 0%, var(--table-bg) 75%);
+    /* 毡布渐变：中心亮绿 → 边缘深墨绿，营造桌面纵深感 */
+    background-image:
+      radial-gradient(ellipse at 50% 45%, var(--table-felt-light) 0%, var(--table-felt) 35%, var(--table-bg) 80%);
     font-family: var(--font-cn);
-    color: #e8e0d0;
+    color: var(--text-on-dark);
   }
-  .table { width: 100%; height: 100%; position: relative; }
+  /* 木纹桌边：四边内边框模拟牌桌围栏 */
+  .table {
+    width: 100%; height: 100%; position: relative;
+    box-shadow:
+      inset 0 0 0 10px var(--table-rail),
+      inset 0 0 0 14px var(--table-rail-light),
+      inset 0 0 30px rgba(0,0,0,0.4);
+  }
 
   /* ═══════ 牌面 ═══════ */
   .card {
     width: 40px; height: 56px; background: var(--card-bg);
-    border-radius: var(--radius); border: 1px solid #d4c9a8;
+    border-radius: var(--radius); border: 1px solid var(--card-border);
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
     position: absolute; cursor: default;
-    box-shadow: 0 1px 3px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.5);
+    box-shadow: 0 2px 4px var(--card-shadow), inset 0 1px 0 rgba(255,255,255,0.6);
     user-select: none; z-index: 1;
+    transition: transform 0.15s, box-shadow 0.15s;
   }
   .card::before {
     content: ""; position: absolute; inset: 2px;
-    border: 0.5px solid rgba(180,160,120,0.25); border-radius: 3px; pointer-events: none;
+    border: 0.5px solid rgba(180,160,120,0.3); border-radius: 5px; pointer-events: none;
   }
   /* ═══════ 花精/皮精视觉区分 ═══════ */
   /* 花精：金色内边框装饰 + 暖色底纹 */
@@ -107,6 +133,14 @@
   .card-back-text { font-size: 18px; color: rgba(255,255,255,0.3); font-family: var(--font-display); }
 
   .card.in-hand { cursor: grab; }
+  /* 桌面端手牌悬停：上浮 + 金边（触摸设备自动禁用）*/
+  @media (hover: hover) and (pointer: fine) {
+    .card.in-hand:not(.locked):hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 14px var(--card-shadow), 0 0 0 1.5px var(--card-border);
+      z-index: 6;
+    }
+  }
   .card.in-hand.locked { cursor: not-allowed; opacity: 0.7; pointer-events: none; }
 
   /* 扎牌在手牌区的样式 - 细边框标记+锁死 */
@@ -423,14 +457,14 @@
     font-size: 13px; font-family: var(--font-cn);
     cursor: pointer; transition: all 0.15s; white-space: nowrap;
   }
-  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--gold-light); color: var(--gold-light); }
+  .act-btn:hover { background: rgba(0,0,0,0.85); border-color: var(--accent); color: var(--gold-light); }
   .act-btn.highlight {
-    background: rgba(217,119,6,0.85); border-color: var(--gold); color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark)); border-color: var(--gold); color: #fff;
     animation: pulse 0.8s infinite;
   }
   @keyframes pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(217,119,6,0.4); }
-    50% { box-shadow: 0 0 8px 2px rgba(217,119,6,0.6); }
+    0%,100% { box-shadow: 0 0 0 0 rgba(230,126,34,0.4); }
+    50% { box-shadow: 0 0 8px 2px rgba(230,126,34,0.6); }
   }
   .panel-bottom { bottom: 175px; left: 50%; transform: translateX(-50%); }
 
@@ -1767,7 +1801,7 @@
 
   <!-- 操作日志 -->
   <div class="log-bar">
-    <div class="log-title">操作记录</div>
+    <div class="log-title">操作记录 <span class="export-btn" onclick="exportGameRecord()" title="导出本局完整牌面记录，便于复盘排查bug" style="cursor:pointer;font-size:10px;color:#d4af37;margin-left:6px;text-decoration:underline;">导出</span></div>
     <div id="log-list"></div>
   </div>
 
@@ -2587,12 +2621,17 @@ function initGame() {
   actionsDealer.classList.remove('show');
   document.getElementById('game-over').classList.remove('show');
 
+  // ★ 初始化牌局追踪记录
+  G._gameRecord = [];
+
   handCards.sort((a, b) => getDynamicSortOrder().indexOf(a.ch) - getDynamicSortOrder().indexOf(b.ch));
   layoutInitial();
   buildSideHand('hand-right', 25);
   buildSideHand('hand-left', 25);
   updateUI();
   updateOpponentCounts();
+  // ★ 记录开局初始牌面
+  _recordAction('开局', '发牌完成', '');
   if (checkDealerZhaAndHu()) return;
   setPhase('庄家出牌');
   unlockHand();
@@ -2878,6 +2917,9 @@ function playCard(el) {
 
   G.round++;
   updateUI();
+
+  // ★ 出牌后清除当回合招/扎/穿/泛牌操作标记，防止按钮持续有效
+  _clearRoundOpFlags();
 
   // 飞行动画
   const flyEl = document.createElement('div');
@@ -3714,6 +3756,16 @@ function dealerFan() {  actionsDealer.classList.remove('show');
   SoundManager.play('fan'); SoundManager.play('v_fan');
   addLog(NAMES[0], '泛', fanChar);
 
+  // ★ 修复：泛牌补摸前，若暂存区还有未处理的牌（如刚摸未出），先并入自由牌，避免补摸动画清除丢牌(小相公)
+  if (G.drawnCard && (!fanCard || G.drawnCard !== fanCard)) {
+    var mergeCard = G.drawnCard;
+    if (G.drawnEl && G.drawnEl.parentNode) G.drawnEl.remove();
+    createCardEl(mergeCard, 0, 0);
+    handCards.push(mergeCard);
+    G.drawnCard = null; G.drawnEl = null;
+    rearrangeHand();
+  }
+
   // 泛牌后需要补牌（摸牌顶）
   if (G.deckCount > 0) {
     var drawnCh = G.deck.pop();
@@ -3786,26 +3838,49 @@ function checkDealerZhaAndHu() {
     }
   }
 
-  // ★ 检测穿牌：自由牌中是否有与扎牌同字的第5张（摸到的牌并入自由牌后检测）
+  // ★ 检测穿牌：只要有 inHand 扎牌 且 手牌/暂存中仍有同字（第5张），庄家每次摸牌后均有穿牌权
+  // 规则：穿牌权在「扎牌存在 + 手牌有同字」期间持续存在（每回合摸牌后检测），同一张牌仅能穿牌一次（执行后升级为穿牌）
   var chuanChar = null;
   var chuanIsWildZha = false;
+  // ★ 穿牌模式标记：供 dealerChuan 正确区分穿牌来源（手牌物理/手牌赖子/暂存）
+  G._handChuanChar = null;
+  G._handChuanIsWildZha = null;
+  G._handWildChuan = false;
   if (G.dealerMelds) {
+    // 遍历 inHand 扎牌
     for (var mi = 0; mi < G.dealerMelds.length; mi++) {
       var cm = G.dealerMelds[mi];
-      if (cm.type === 'zha' && cm.inHand && (counts[cm.char] || 0) >= 1) {
+      if (cm.type !== 'zha' || !cm.inHand) continue;
+      // 1. 手牌中（不含暂存）有与扎牌同字的牌 → 手牌物理穿牌
+      if (handCards.some(function(c) { return c.ch === cm.char; })) {
         chuanChar = cm.char;
         chuanIsWildZha = !!cm.isWildZha;
+        G._handChuanChar = cm.char;
+        G._handChuanIsWildZha = chuanIsWildZha;
+        break;
+      }
+      // 2. 手牌中有赖子 且 扎牌字在WILD_USABLE(三五七) → 手牌赖子通配穿牌
+      if (handCards.some(function(c) { return c.ch === WILD_CHAR; }) && WILD_USABLE.has(cm.char)) {
+        chuanChar = cm.char;
+        chuanIsWildZha = !!cm.isWildZha;
+        G._handWildChuan = true;
         break;
       }
     }
-    // 赖子通配穿牌：手中有赖子且扎牌字在WILD_USABLE(三五七)中，赖子可当该字穿牌
-    if (!chuanChar && (counts[WILD_CHAR] || 0) > 0) {
-      for (var mi = 0; mi < G.dealerMelds.length; mi++) {
-        var cm = G.dealerMelds[mi];
-        if (cm.type === 'zha' && cm.inHand && WILD_USABLE.has(cm.char)) {
-          chuanChar = cm.char;
-          chuanIsWildZha = !!cm.isWildZha;
-          break;
+    // 3. 手牌无来源，检查暂存区（G.drawnCard 与扎牌同字或为赖子）
+    if (!chuanChar && G.drawnCard) {
+      for (var mi2 = 0; mi2 < G.dealerMelds.length; mi2++) {
+        var cm2 = G.dealerMelds[mi2];
+        if (cm2.type === 'zha' && cm2.inHand && cm2.char === G.drawnCard.ch) {
+          chuanChar = cm2.char; chuanIsWildZha = !!cm2.isWildZha; break;
+        }
+      }
+      if (!chuanChar && G.drawnCard.ch === WILD_CHAR) {
+        for (var mi2 = 0; mi2 < G.dealerMelds.length; mi2++) {
+          var cm2 = G.dealerMelds[mi2];
+          if (cm2.type === 'zha' && cm2.inHand && WILD_USABLE.has(cm2.char)) {
+            chuanChar = cm2.char; chuanIsWildZha = !!cm2.isWildZha; break;
+          }
         }
       }
     }
@@ -4548,6 +4623,25 @@ function dealerChuan() {
 }
 
 
+/* ═══ 回合操作校验：清除当回合招/扎/穿/泛牌资格标记，防止按钮持续有效 ═══ */
+function _clearRoundOpFlags() {
+  G._drawnChuanPending = false;
+  G._handChuanChar = null;
+  G._handChuanIsWildZha = null;
+  G._handWildChuan = false;
+  // 隐藏所有未使用的操作按钮
+  var chuanBtn = document.getElementById('btn-chuan');
+  var fanBtn = document.getElementById('btn-fan');
+  var zhaBtn = document.getElementById('btn-zha');
+  var zhaoBtn = document.getElementById('btn-zhao');
+  var penBtn = document.getElementById('btn-pen');
+  if (chuanBtn) chuanBtn.style.display = 'none';
+  if (fanBtn) fanBtn.style.display = 'none';
+  if (zhaBtn) zhaBtn.style.display = 'none';
+  if (zhaoBtn) zhaoBtn.style.display = 'none';
+  if (penBtn) penBtn.style.display = 'none';
+}
+
 /* ═══ 庄家过 ═══ */
 function dealerPass() {
   console.log("[流程] dealerPass");
@@ -5276,7 +5370,62 @@ function setPhase(text, isDrawing) {
   }
 }
 
+// ★ 牌局追踪：记录当前所有玩家牌面快照（用于bug复盘）
+function _recordAction(who, action, card) {
+  if (!G._gameRecord) G._gameRecord = [];
+  G._gameRecord.push({
+    round: G.round || 0,
+    who: who || '',
+    action: action || '',
+    card: card || '',
+    dealerHand: (handCards || []).map(c => c.ch + (c.v === 'flower' ? '☆' : '')).join(''),
+    drawn: G.drawnCard ? G.drawnCard.ch + (G.drawnCard.v === 'flower' ? '☆' : '') : '',
+    melds: G.dealerMelds ? G.dealerMelds.map(m => m.type + ':' + (m.char || '') + 'x' + (m.count || 0)).join(' ') : '',
+    opp1: (opponentHands && opponentHands[1]) ? opponentHands[1].join('') : '',
+    opp2: (opponentHands && opponentHands[2]) ? opponentHands[2].join('') : '',
+    meld1: (opponentMelds && opponentMelds[1]) ? opponentMelds[1].map(m => (m.type || '') + ':' + (m.char || '')).join(' ') : '',
+    meld2: (opponentMelds && opponentMelds[2]) ? opponentMelds[2].map(m => (m.type || '') + ':' + (m.char || '')).join(' ') : '',
+    deck: G.deckCount || 0,
+  });
+}
+
+// ★ 导出牌局记录：生成可下载的文本文件
+function exportGameRecord() {
+  if (!G._gameRecord || G._gameRecord.length === 0) {
+    alert('当前没有可导出的牌局记录');
+    return;
+  }
+  var lines = [];
+  lines.push('湖北花牌 牌局追踪记录');
+  lines.push('导出时间: ' + new Date().toLocaleString());
+  lines.push('格式说明: [回合] 玩家|操作|牌 || 庄手=庄家手牌 暂存=刚摸牌 明牌=庄家明牌区 上=上家手牌 下=下家手牌 余=余牌数');
+  lines.push('注: ☆表示花牌; 旁家手牌为AI内部牌面，仅供bug复盘');
+  lines.push('================================================================');
+  G._gameRecord.forEach(function(r) {
+    lines.push('[' + (r.round || 0) + '] ' + (r.who || '') + '|' + (r.action || '') + '|' + (r.card || '') +
+      ' || 庄手:' + (r.dealerHand || '') +
+      ' 暂存:' + (r.drawn || '-') +
+      ' 明牌:' + (r.melds || '-') +
+      ' 上:' + (r.opp2 || '-') +
+      ' 下:' + (r.opp1 || '-') +
+      ' 上明:' + (r.meld2 || '-') +
+      ' 下明:' + (r.meld1 || '-') +
+      ' 余:' + (r.deck || 0));
+  });
+  var blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '花牌牌局记录_' + Date.now() + '.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function addLog(who, action, card) {
+  // 记录到牌局追踪（完整牌面快照）
+  _recordAction(who, action, card);
   const list = document.getElementById('log-list');
   const item = document.createElement('div');
   item.className = 'log-item';
@@ -6923,8 +7072,7 @@ dealerPass = function() {
   var isOpponentDiscard = penVisible || zhaoVisible || huVisible;
 
   if (isOpponentDiscard) {
-    // 旁家出牌后庄家过牌 → 检查旁家碰牌/流转
-    addLog(NAMES[0], '过', '');
+    // 旁家出牌后庄家过牌 → 检查旁家碰牌/流转（原版内部会记录"过"日志，此处不重复记录）
     _origDealerPass();
   } else {
     // 自摸后庄家过牌（不做扎/泛/胡）→ 让庄家正常出牌
@@ -8763,7 +8911,7 @@ window.addEventListener('orientationchange', function() {
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('./service-worker.js?v=2')
+      navigator.serviceWorker.register('./service-worker.js?v=4')
         .then(function(reg) { console.log('花牌SW已注册:', reg.scope); })
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
     });
