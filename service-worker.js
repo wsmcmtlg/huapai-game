@@ -1,10 +1,11 @@
 // 公安花牌 Service Worker - 缓存策略
-const CACHE_NAME = 'huapa-v4';
+const CACHE_NAME = 'huapa-v5';
 const ASSETS = [
   './step5-hu.html',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './game-rules.html'
 ];
 
 // 安装：预缓存核心资源
@@ -31,6 +32,19 @@ self.addEventListener('activate', (e) => {
 
 // 请求：HTML 网络优先（保证最新版），静态资源 stale-while-revalidate（后台更新）
 self.addEventListener('fetch', (e) => {
+  // 规则说明文件：网络优先（用户编辑后刷新即生效），失败回退缓存
+  if (e.request.url.indexOf('game-rules.html') !== -1) {
+    e.respondWith(
+      fetch(e.request).then(function(resp) {
+        if (resp.status === 200) {
+          var clone = resp.clone();
+          caches.open(CACHE_NAME).then(function(cache) { cache.put(e.request, clone); });
+        }
+        return resp;
+      }).catch(function() { return caches.match(e.request); })
+    );
+    return;
+  }
   // HTML 页面导航：网络优先，失败回退缓存
   if (e.request.mode === 'navigate') {
     e.respondWith(

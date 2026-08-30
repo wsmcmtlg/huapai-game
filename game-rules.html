@@ -1,0 +1,128 @@
+<!--
+  ════════════════════════════════════════════════════════
+  公安花牌 · 游戏规则与说明（独立文件，可自由编辑打磨）
+  ════════════════════════════════════════════════════════
+  本文件是游戏内「规则」按钮弹出面板的内容源。
+  · 直接编辑此文件即可修改游戏内的规则说明，保存后刷新游戏页面即生效
+    （游戏对该文件走网络优先，不会用旧缓存挡住你的修改）。
+  · 可自由使用 HTML：标题、段落、列表、表格、加粗、颜色、图片等。
+  · 最外层请保留 <div id="rules-content">...</div> 结构；样式写在文件顶部的 <style> 里，
+    可自行增删规则样式（红/黑/金色高亮、表格、章节标题等）。
+  · 章节用小标题 <h2>，细分可用 <h3>，正文用 <p>，列表用 <ul>/<ol>。
+  ════════════════════════════════════════════════════════
+-->
+<style>
+  #rules-content { text-align: left; font-size: 13px; line-height: 1.8; color: #d1d5db; }
+  #rules-content h2 {
+    font-size: 16px; color: #f59e0b; font-weight: bold;
+    margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid rgba(245,158,11,0.25);
+  }
+  #rules-content h3 { font-size: 14px; color: #fbbf24; font-weight: bold; margin: 8px 0 4px; }
+  #rules-content p { margin: 4px 0; }
+  #rules-content ul, #rules-content ol { margin: 4px 0; padding-left: 1.5em; }
+  #rules-content li { margin: 3px 0; }
+  #rules-content table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  #rules-content th, #rules-content td { border: 1px solid rgba(255,255,255,0.15); padding: 4px 6px; font-size: 12px; text-align: center; }
+  #rules-content th { background: rgba(245,158,11,0.12); color: #fbbf24; }
+  #rules-content b, #rules-content strong { color: #fbbf24; }
+  #rules-content .red { color: #ef4444; }
+  #rules-content .black { color: #e5e7eb; }
+  #rules-content .gold { color: #f59e0b; }
+</style>
+
+<div id="rules-content">
+
+  <h2>游戏介绍</h2>
+  <p>湖北公安花牌，三人对战纸牌游戏。本局中你为<b>庄家</b>，上下两家为电脑。全副牌共 <b>112 张</b>：22 个字面各 5 张（共 110 张），另加 <b>2 张赖子</b>。玩家通过摸打、碰招扎穿泛等操作整理牌型，凑齐型牌与眼、达到最低胡数即可胡牌，胡数越高得分越高。</p>
+
+  <h2>牌具与字面</h2>
+  <h3>22 个字面</h3>
+  <p><b>上大人 可知礼 化三千 孔乙己 七十土 八九子 二三四五六七八九十</b></p>
+  <h3>红牌与黑牌</h3>
+  <ul>
+    <li>红牌（10 字）：<span class="red">上大人 可知礼 三五七 赖</span></li>
+    <li>黑牌（12 字）：其余字面</li>
+  </ul>
+  <h3>精牌</h3>
+  <ul>
+    <li>红精：<span class="red">三、五、七</span></li>
+    <li>黑精：<span class="black">乙、九</span></li>
+    <li>赖子：可通配 <span class="red">三五七</span>（不能当乙九用，也不能当赖子用）</li>
+  </ul>
+  <p>精牌以花面显示：花三→叁、花五→伍、花七→柒、花乙→壹、花九→玖。精牌分「花 / 皮」，花精胡数 ≥ 皮精。</p>
+
+  <h2>顺子（14 种）</h2>
+  <table>
+    <tr><th>类别</th><th>顺子</th><th>胡数</th></tr>
+    <tr><td rowspan="6">固定顺</td><td>上大人</td><td class="red">红 1</td></tr>
+    <tr><td>可知礼</td><td class="red">红 1</td></tr>
+    <tr><td>化三千</td><td>0</td></tr>
+    <tr><td>孔乙己</td><td>0</td></tr>
+    <tr><td>七十土</td><td>0</td></tr>
+    <tr><td>八九子</td><td>0</td></tr>
+    <tr><td rowspan="8">数字顺</td><td>乙二三</td><td>0</td></tr>
+    <tr><td>二三四</td><td>0</td></tr>
+    <tr><td>三四五</td><td>0</td></tr>
+    <tr><td>四五六</td><td>0</td></tr>
+    <tr><td>五六七</td><td>0</td></tr>
+    <tr><td>六七八</td><td>0</td></tr>
+    <tr><td>七八九</td><td>0</td></tr>
+    <tr><td>八九十</td><td>0</td></tr>
+  </table>
+
+  <h2>牌型体系</h2>
+  <h3>基础牌型（型牌）</h3>
+  <table>
+    <tr><th>牌型</th><th>构成</th><th>胡数</th></tr>
+    <tr><td>坎牌</td><td>手中 3 张同字</td><td class="red">红 2 / 黑 1</td></tr>
+    <tr><td>顺子</td><td>3 字合法顺</td><td class="red">红 1 / 黑 0</td></tr>
+  </table>
+  <h3>眼（非型牌）</h3>
+  <ul>
+    <li><b>对子</b>：2 张同字，基础 0 胡（皮三五七 1 胡、花精翻倍、主精再翻倍）</li>
+    <li><b>口（半顺子）</b>：顺子中任意 2 张，也作眼</li>
+  </ul>
+  <h3>扩展牌型（明牌区）</h3>
+  <table>
+    <tr><th>牌型</th><th>构成</th><th>胡数</th></tr>
+    <tr><td>碰牌</td><td>手 2 张 + 旁家 1 张</td><td class="red">红 1 / 黑 0</td></tr>
+    <tr><td>招牌</td><td>已有坎牌 + 旁家打出同字（明杠）</td><td class="red">红 4 / 黑 2</td></tr>
+    <tr><td>扎牌</td><td>手中 4 张同字（暗杠）</td><td class="red">红 4 / 黑 2</td></tr>
+    <tr><td>穿牌</td><td>扎牌后摸到同字或赖子通配 → 5 张</td><td class="red">红 8 / 黑 4</td></tr>
+    <tr><td>泛牌</td><td>扎牌 + 旁家出同字 / 招牌 + 摸同字 → 5 张</td><td class="red">红 8 / 黑 4</td></tr>
+  </table>
+
+  <h2>胡牌条件</h2>
+  <ul>
+    <li><b>两听</b>：7 组型牌 + 2 眼（对子或半顺子）</li>
+    <li><b>摞听</b>：8 组型牌 + 2 眼（对子或半顺子）</li>
+    <li>按<b>最大胡数原则</b>拆牌</li>
+    <li>最低胡数 <b>17 胡</b></li>
+  </ul>
+  <h3>胡牌方式</h3>
+  <ul>
+    <li><b>自摸</b>：自己摸到成胡的牌（额外奖励）</li>
+    <li><b>捉统</b>：旁家打出的牌与你手中牌形成碰/顺满足胡牌条件，出牌者为「放统者」受罚</li>
+  </ul>
+
+  <h2>主精</h2>
+  <p>每局一个「主精」，按手中最大胡数原则确定。包含主精的牌型胡数 <b>×2</b>。<b>乙、九绝不可能作为主精</b>。碰牌、口眼均计主精翻倍。</p>
+
+  <h2>计分</h2>
+  <p><b>胡数 → 得分</b>：17~21 胡得 <b>3 分</b>，之后每多 5 胡加 1 分（如 22~26 胡得 4 分，27~31 胡得 5 分，以此类推）。</p>
+  <ul>
+    <li>旁家：从 2 分起，每 5 胡 +1</li>
+    <li>放统旁家：从 3 分起，每 5 胡 +1</li>
+    <li>捉统：从 5 分起，每 5 胡 +2</li>
+    <li>自摸：从 6 分起，每 5 胡 +2</li>
+  </ul>
+
+  <h2>操作说明</h2>
+  <ul>
+    <li>桌面端：<b>双击</b>手牌或暂存牌出牌，也可拖动出牌</li>
+    <li>手机端：<b>双击</b>出牌、<b>长按</b>看牌</li>
+    <li>出牌后若旁家可碰/招/吃会自动响应；轮到你时可操作碰、招牌、扎牌等，顶部按钮和明牌区会提示</li>
+    <li>工具条按钮：规则、查听牌、查结算、战绩、发言、全屏、退出游戏</li>
+  </ul>
+
+</div>
