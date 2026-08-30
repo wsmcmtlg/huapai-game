@@ -301,6 +301,7 @@
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
   .log-bar {
+    display: none; /* 操作记录暂时隐藏，保留代码，后续如需显示删除此 display:none 行即可 */
     position: absolute; top: 12px; right: 15%;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 6px 12px; border-radius: 8px;
@@ -8843,6 +8844,57 @@ function _aiL3Cheat(hand, playerIdx) {
 initGame();
 updateAILevelDisplay();
 
+// ═══ 全屏模式：首次交互进入全屏 + 退出按钮 ═══
+(function() {
+  function canFullscreen() {
+    var el = document.documentElement;
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
+  }
+  function enterFullscreen() {
+    var el = document.documentElement;
+    try {
+      if (el.requestFullscreen) el.requestFullscreen().catch(function(){});
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } catch (e) {}
+  }
+  function exitFullscreen() {
+    var d = document;
+    try {
+      if (d.exitFullscreen) d.exitFullscreen();
+      else if (d.webkitExitFullscreen) d.webkitExitFullscreen();
+      else if (d.mozCancelFullScreen) d.mozCancelFullScreen();
+      else if (d.msExitFullscreen) d.msExitFullscreen();
+    } catch (e) {}
+  }
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+  // 首次用户手势进入全屏（浏览器要求必须在用户交互中同步调用，页面加载时不能自动全屏）
+  function firstGesture() {
+    enterFullscreen();
+    document.removeEventListener('pointerdown', firstGesture, true);
+    document.removeEventListener('touchstart', firstGesture, true);
+  }
+  if (canFullscreen()) {
+    document.addEventListener('pointerdown', firstGesture, true);
+    document.addEventListener('touchstart', firstGesture, true);
+  }
+  // 退出按钮：全屏则退全屏；非全屏则确认退出游戏（刷新回初始）
+  window.toggleFullscreen = function() {
+    if (isFullscreen()) { exitFullscreen(); return; }
+    if (confirm('确定退出游戏并刷新页面吗？')) { location.reload(); }
+  };
+  // 全屏状态变化时更新退出按钮文字
+  function updateQuitLabel() {
+    var btn = document.getElementById('btn-quit');
+    if (btn) btn.textContent = isFullscreen() ? '退出全屏' : '退出游戏';
+  }
+  document.addEventListener('fullscreenchange', updateQuitLabel);
+  document.addEventListener('webkitfullscreenchange', updateQuitLabel);
+})();
+
 </script>
 
 
@@ -8852,6 +8904,7 @@ updateAILevelDisplay();
     <button class="tool-btn" onclick="showSettleHistory()">查结算</button>
     <button class="tool-btn" onclick="showRecordPopup()">战绩</button>
     <button class="tool-btn" onclick="showChatPopup()">发言</button>
+    <button class="tool-btn" id="btn-quit" onclick="toggleFullscreen()">退出游戏</button>
   </div>
 
 
