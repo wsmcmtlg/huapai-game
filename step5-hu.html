@@ -6744,6 +6744,38 @@ function _showPopup(title, bodyHtml) {
   document.body.appendChild(overlay);
 }
 
+// ═══ 游戏规则说明弹窗 ═══
+function showRulesPopup() {
+  var body = '';
+  body += '<div style="text-align:left;font-size:13px;line-height:1.8;color:#d1d5db;">';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:4px 0 6px;">游戏介绍</div>';
+  body += '<p style="margin:2px 0 8px;">湖北公安花牌，三人对战纸牌游戏。本局中你为庄家，上下两家为电脑。全副牌共 <b>112 张</b>：22 个字面各 5 张（共 110 张）加 <b>2 张赖子</b>。凑齐牌型、达到最低胡数即可胡牌，胡数越高得分越高。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">牌具</div>';
+  body += '<p style="margin:2px 0;">字面 22 个：<b>上大人 可知礼 化三千 孔乙己 七十土 八九子 二三四五六七八九十</b>。</p>';
+  body += '<p style="margin:2px 0;">红牌：上大人 可知礼 三五七 赖（10 字）；黑牌：其余 12 字。</p>';
+  body += '<p style="margin:2px 0 8px;"><b>精牌</b>：三、五、七（红精）、乙、九（黑精）为精牌；<b>赖子</b>可通配三五七（不能当乙九用）。精牌以花面显示（叁伍柒壹玖），花精胡数≥皮精。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">顺子与牌型</div>';
+  body += '<p style="margin:2px 0;"><b>顺子 14 种</b>：上大人、可知礼（红，1 胡）；化三千、孔乙己、七十土、八九子（黑，0 胡）；乙二三、二三四、三四五、四五六、五六七、六七八、七八九、八九十（数字顺，0 胡）。</p>';
+  body += '<p style="margin:2px 0;"><b>坎牌</b>：手中 3 张同字（红 2 胡 / 黑 1 胡）。<b>顺子</b>：3 字合法顺（红 1 / 黑 0）。</p>';
+  body += '<p style="margin:2px 0 8px;"><b>眼</b>：对子（2 张同字）或口（半顺子）作眼，基础 0 胡；皮三五七计 1 胡、花精翻倍、主精再翻倍。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">扩展牌型（明牌区）</div>';
+  body += '<p style="margin:2px 0;"><b>碰牌</b>：手 2 张 + 旁家 1 张（红 1 / 黑 0）。<b>招牌</b>：已有坎牌 + 旁家打出同字（明杠，红 4 / 黑 2）。</p>';
+  body += '<p style="margin:2px 0;"><b>扎牌</b>：手中 4 张同字（暗杠，红 4 / 黑 2）。<b>穿牌</b>：扎牌后摸到同字或赖子通配升级为 5 张（红 8 / 黑 4）。</p>';
+  body += '<p style="margin:2px 0 8px;"><b>泛牌</b>：扎牌 + 旁家出同字，或招牌 + 摸到同字升级为 5 张（红 8 / 黑 4）。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">胡牌条件</div>';
+  body += '<p style="margin:2px 0;"><b>两听</b>：7 组型牌 + 2 眼；<b>摞听</b>：8 组型牌 + 2 眼。按最大胡数原则拆牌。</p>';
+  body += '<p style="margin:2px 0;">最低胡数 <b>17 胡</b>。胡牌方式：<b>自摸</b>（自己摸到成胡）或 <b>捉统</b>（旁家打出形成胡牌，出牌者受罚）。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">主精与计分</div>';
+  body += '<p style="margin:2px 0;"><b>主精</b>：每局一个，按手中最大胡数确定；含主精的牌型胡数 ×2（乙、九不能当主精）。</p>';
+  body += '<p style="margin:2px 0;"><b>计分</b>：17~21 胡得 3 分，之后每多 5 胡加 1 分（如 22~26 胡得 4 分，27~31 胡得 5 分，以此类推）。</p>';
+  body += '<div style="font-size:16px;color:#f59e0b;font-weight:bold;margin:10px 0 6px;">操作说明</div>';
+  body += '<p style="margin:2px 0;">桌面端：<b>双击</b>手牌或暂存牌出牌，也可拖动；手机端：<b>双击</b>出牌、<b>长按</b>看牌。</p>';
+  body += '<p style="margin:2px 0;">出牌后若旁家可碰/招/吃会自动响应；轮到你时可操作碰、招牌、扎牌等，顶部按钮和明牌区会提示。</p>';
+  body += '<p style="margin:2px 0 4px;">页面上方工具条：规则、查听牌、查结算、战绩、发言、全屏、退出游戏。</p>';
+  body += '</div>';
+  _showPopup('游戏规则与说明', body);
+}
+
 function showSettlePanel(winnerIdx, winResult, winType) {
   const container = document.getElementById('settle-container');
   const name = NAMES[winnerIdx];
@@ -8942,6 +8974,7 @@ updateAILevelDisplay();
 
   <!-- 工具栏 -->
   <div class="tool-bar">
+    <button class="tool-btn" onclick="showRulesPopup()">规则</button>
     <button class="tool-btn" onclick="showTingPopup()">查听牌</button>
     <button class="tool-btn" onclick="showSettleHistory()">查结算</button>
     <button class="tool-btn" onclick="showRecordPopup()">战绩</button>
