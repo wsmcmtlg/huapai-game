@@ -301,7 +301,6 @@
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
 
   .log-bar {
-    display: none; /* 操作记录暂时隐藏，保留代码，后续如需显示删除此 display:none 行即可 */
     position: absolute; top: 12px; right: 15%;
     background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
     padding: 6px 12px; border-radius: 8px;
@@ -1755,7 +1754,7 @@
   }
   /* 弹窗适配（移动端不超屏、可滚动） */
   @media (max-width: 768px) and (orientation: portrait), (orientation: landscape) and (max-height: 520px) {
-    .font-toggle, .card-img-toggle { display: none; } /* 手机端隐藏图片/篆体切换按钮，保留代码，删行即恢复 */
+    .font-toggle, .card-img-toggle, .log-bar { display: none; } /* 手机端隐藏图片/篆体切换按钮与操作记录，保留代码，删行即恢复 */
     .sound-settings-panel { max-width: min(92vw, 420px); min-width: 0; }
     .zha-pick-overlay { min-width: 0; max-width: 92vw; padding: 14px 16px; }
     .zha-pick-options { flex-wrap: wrap; }
