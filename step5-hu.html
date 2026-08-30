@@ -2205,9 +2205,19 @@ var CARD_W = 40, CARD_H = 56, STEP_X = 40;
 function updateCardMetrics() {
   if (window.innerWidth <= 1000) {
     var el = handZone && handZone.querySelector('.card');
+    // 手牌未创建时临时插入探针卡片读取真实 CSS 尺寸（避免手机端首次 initGame 时落到桌面默认值 40/56 导致布局溢出）
+    var probe = null;
+    if (!el && handZone) {
+      probe = document.createElement('div');
+      probe.className = 'card';
+      probe.style.visibility = 'hidden';
+      handZone.appendChild(probe);
+      el = probe;
+    }
     if (el) {
       var r = el.getBoundingClientRect();
       if (r.width > 8) { CARD_W = r.width; CARD_H = r.height; STEP_X = Math.round(r.width); }
+      if (probe) probe.remove();
       return;
     }
   }
@@ -5141,8 +5151,18 @@ function animateDealerDraw(data, callback) {
     stayEl.addEventListener('touchstart', function(ev) {
       ev.preventDefault();
       const t = ev.touches[0];
+      const el = ev.currentTarget;
+      const now = Date.now();
+      // 移动端双击出牌：350ms 内同一张牌第二次触摸即出牌（与手牌 onTouchDown 一致）
+      if (!dragMoved && lastTap && lastTap.el===el && now-lastTap.time < 350) {
+        lastTap = null;
+        if (drag) { drag.el.classList.remove('dragging'); drag=null; dragMoved=false; }
+        if (!G.locked && !G.gameOver) playCard(el);
+        return;
+      }
+      lastTap = {el, time: now};
       dragStartPos = {x:t.clientX, y:t.clientY};
-      beginDrag(stayEl, ev.clientX, ev.clientY);
+      beginDrag(el, t.clientX, t.clientY);
     }, {passive:false});
 
     updateDeckVisual();
