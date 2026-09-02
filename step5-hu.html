@@ -8002,6 +8002,54 @@ function _aiGetDefenseFactor(playerIdx) {
   return factor;
 }
 
+// ═══ Phase 7.6: 主动喂牌（止损模式下引导便宜玩家胡牌） ═══
+// 止损模式 + 两家胡数差距明显时：优先打"便宜家需要且危险家不需要"的牌
+// 返回 {targetPi, dangerPi, targetPoints, dangerPoints, diff} 或 null
+function _aiGetFeedTarget(playerIdx) {
+  var pts = [];
+  for (var pi = 1; pi <= 2; pi++) {
+    if (pi === playerIdx) continue; // 自己是出牌者
+    var est = _aiEstimateOpponentHu(pi);
+    pts.push({pi: pi, p: est.estPoints, hu: est.estHu});
+  }
+  if (pts.length < 2) return null;
+  var cheap = pts[0].p <= pts[1].p ? pts[0] : pts[1];
+  var danger = pts[0].p > pts[1].p ? pts[0] : pts[1];
+  var diff = danger.p - cheap.p;
+  // 差距明显才值得喂（便宜家须有胡牌潜力，且两家分差>=1分）
+  if (diff < 1.0 || cheap.p <= 0.5) return null;
+  return { targetPi: cheap.pi, dangerPi: danger.pi, targetPoints: cheap.p, dangerPoints: danger.p, diff: diff };
+}
+
+// 喂牌评分：ch 对便宜家的喂送价值（正=喂给便宜家，负=喂给危险家）
+function _aiFeedScore(ch, feedTarget) {
+  if (!feedTarget) return 0;
+  var score = 0;
+  // 便宜家需要 ch → 加分（主动喂）
+  var gsT = guessOpponentTing(feedTarget.targetPi);
+  for (var i = 0; i < gsT.length; i++) {
+    if (gsT[i].ch === ch) score += (gsT[i].c || 0) * 2;
+  }
+  var bgT = _aiBehaviorBasedTingGuess(feedTarget.targetPi);
+  for (var i = 0; i < bgT.length; i++) {
+    if (bgT[i].ch === ch) score += (bgT[i].confidence || 0) * 2;
+  }
+  // 危险家需要 ch → 重罚（绝不喂危险家）
+  var gsD = guessOpponentTing(feedTarget.dangerPi);
+  for (var i = 0; i < gsD.length; i++) {
+    if (gsD[i].ch === ch) score -= (gsD[i].c || 0) * 3;
+  }
+  var bgD = _aiBehaviorBasedTingGuess(feedTarget.dangerPi);
+  for (var i = 0; i < bgD.length; i++) {
+    if (bgD[i].ch === ch) score -= (bgD[i].confidence || 0) * 3;
+  }
+  // 便宜家曾过此牌 → 降权（她不要）
+  if (G._passRecord && G._passRecord[feedTarget.targetPi] && G._passRecord[feedTarget.targetPi][ch]) {
+    score -= 1;
+  }
+  return score;
+}
+
 // ═══ Phase 7.5: 显式止损模式（concede） ═══
 // 条件：自己牌力弱（精/赖少、无坎、口子少）+ 某旁家预期胡数高 + 余牌不多
 // 行为：放弃胡牌，只打绝对安全牌（允许拆对子/坎）
@@ -8818,6 +8866,8 @@ function _aiL3Cheat(hand, playerIdx) {
   var strategyMode = _aiGetStrategyMode(playerIdx);
   // Phase 7.5: 显式止损模式判定
   var concedeMode = _aiGetConcedeMode(playerIdx);
+  // Phase 7.6: 止损模式下识别喂牌目标（便宜家）
+  var feedTarget = concedeMode.concede ? _aiGetFeedTarget(playerIdx) : null;
   
   // Phase 4: 融入旁家行为分析增强听牌推测
   var behaviorGuesses = [];
@@ -8837,6 +8887,8 @@ function _aiL3Cheat(hand, playerIdx) {
     const riskCost = getRiskCost(ch);
     const remain = getRemainingCount(ch);
     const exposure = exposureScore[ch] || 0;
+    // Phase 7.6: 喂牌评分（仅止损模式有意义）
+    const feedScore = feedTarget ? _aiFeedScore(ch, feedTarget) : 0;
 
     // 保留价值（越高越不应出）
     let retainValue = 0;
@@ -8865,13 +8917,17 @@ function _aiL3Cheat(hand, playerIdx) {
 
     // 危险惩罚（概率维度）+ 期望损失（"两害相权取其轻"）
     let dangerPenalty = (danger * 20 + riskCost * 30) * (concedeMode.concede ? 2.0 : 1.0);
+    // Phase 7.6: 喂牌目标牌——危险度主要来自便宜家自身听牌（喂送是止损本意），危险惩罚降权
+    // feedScore>0.5 已保证"便宜家需要显著高于危险家需要"（危险家需要以-3×conf计负分）
+    if (feedTarget && feedScore > 0.5) dangerPenalty *= 0.25;
 
     // 可见度加成：旁家已经有很多该字符的可见牌→打出去相对安全
     let visibilityBonus = Math.min(5, exposure * 0.5);
 
     // 出牌优先级 = 听牌奖励 - 保留价值 + 安全值 - 危险惩罚 + 可见度
     let discardPriority = 0;
-    if (ting.canTing) {
+    var feedPriority = !!(concedeMode.concede && feedTarget);
+    if (ting.canTing && !feedPriority) {
       // 能听牌→最高优先级
       // Phase 4: 听牌权重受阶段影响
       var phaseTingMult = phaseFactor.tingWeight;
@@ -8888,19 +8944,21 @@ function _aiL3Cheat(hand, playerIdx) {
       var tingMult2 = concedeMode.concede ? 10 : phaseTingMult;
       discardPriority = tingBase + ting.maxHu * 100 * tingMult2 + ting.tingCount * 50 * tingMult2 + tingEffectiveness * 30;
     } else {
-      // Phase 4: 非听牌时受攻防模式影响
+      // Phase 4: 非听牌时受攻防模式影响（止损+喂牌时听牌候选也走此分支：已放弃胡牌，喂牌优先）
       discardPriority = -retainValue + trackSafety - dangerPenalty * defenseFactor.dangerMultiplier + visibilityBonus;
       // Phase 4: 安全牌奖励/冒险奖励
       discardPriority += defenseFactor.safeBonus * (danger < 0.2 ? 1 : 0);
       discardPriority += defenseFactor.riskyPenalty * (danger > 0.5 ? 1 : 0);
+      // Phase 7.6: 止损模式主动喂牌奖励（便宜家需要的牌优先打）
+      if (feedTarget) discardPriority += feedScore * 30;
     }
-    // Phase 4: 阶段激进系数影响
-    if (!ting.canTing) {
+    // Phase 4: 阶段激进系数影响（止损+喂牌时听牌候选同权重，避免与普通非听牌不一致）
+    if (!ting.canTing || feedPriority) {
       // 发展期更保守保留（减少出牌优先级）
       discardPriority *= phaseFactor.aggression;
     }
 
-    scored.push({ch, discardPriority, ting, danger, riskCost, remain, cnt});
+    scored.push({ch, discardPriority, ting, danger, riskCost, remain, cnt, feedScore});
   }
 
   // 按优先级降序排列，选最高
@@ -9005,7 +9063,9 @@ function _aiL3Cheat(hand, playerIdx) {
     // Phase 7: 阈值融合期望损失（"两害相权取其轻"），防守模式权重更高
     var riskFactor = strategyMode.mode === 'defend' ? 1.0 : 0.6;
     var effectiveRisk = effectiveDanger + (s.riskCost || 0) * riskFactor;
-    if (s.discardPriority > -100 && effectiveRisk < dangerThreshold) {
+    // Phase 7.6: 喂牌目标牌（便宜家需要）阈值放宽，引导主动喂送
+    var feedAllow = (feedTarget && (s.feedScore || 0) > 0.5) ? Math.min(1.5, 0.3 + (s.feedScore || 0)) : 0;
+    if (s.discardPriority > -100 && (effectiveRisk - feedAllow) < dangerThreshold) {
       return hand.indexOf(s.ch);
     }
   }
@@ -9013,10 +9073,24 @@ function _aiL3Cheat(hand, playerIdx) {
   // 兜底: 选危险度 + 期望损失最低的牌（"两害相权取其轻"）
   var safest = scored[0];
   var riskW = concedeMode.concede ? 1.0 : 0.6;
-  for (var _si = 1; _si < scored.length; _si++) {
-    var bestRisk = safest.danger + (safest.riskCost || 0) * riskW;
-    var curRisk = scored[_si].danger + (scored[_si].riskCost || 0) * riskW;
-    if (curRisk < bestRisk) safest = scored[_si];
+  if (feedTarget) {
+    // Phase 7.6: 止损喂牌：优先 feedScore 高者（同分取风险低）
+    for (var _fi = 1; _fi < scored.length; _fi++) {
+      var fs = scored[_fi].feedScore || 0, bfs = safest.feedScore || 0;
+      if (fs > bfs + 0.3) {
+        safest = scored[_fi];
+      } else if (Math.abs(fs - bfs) <= 0.3) {
+        var br = safest.danger + (safest.riskCost || 0) * riskW;
+        var cr = scored[_fi].danger + (scored[_fi].riskCost || 0) * riskW;
+        if (cr < br) safest = scored[_fi];
+      }
+    }
+  } else {
+    for (var _si = 1; _si < scored.length; _si++) {
+      var bestRisk = safest.danger + (safest.riskCost || 0) * riskW;
+      var curRisk = scored[_si].danger + (scored[_si].riskCost || 0) * riskW;
+      if (curRisk < bestRisk) safest = scored[_si];
+    }
   }
   return hand.indexOf(safest.ch);
 }

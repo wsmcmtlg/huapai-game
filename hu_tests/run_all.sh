@@ -35,6 +35,7 @@ run test_chuan_table.js          # 红精穿牌6条表驱动
 run test_hu_perf.js              # 性能(120ms AI预算内)
 run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 run test_ai_concede.js           # Phase7.5: 显式止损模式(concede)
+run test_ai_feed.js              # Phase7.6: 主动喂牌(止损下引导便宜家胡牌)
 
 echo "════════════════════════════════════════"
 echo "结果: 通过 $PASS / 失败 $FAIL"
