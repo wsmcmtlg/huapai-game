@@ -8002,6 +8002,50 @@ function _aiGetDefenseFactor(playerIdx) {
   return factor;
 }
 
+// ═══ Phase 7.5: 显式止损模式（concede） ═══
+// 条件：自己牌力弱（精/赖少、无坎、口子少）+ 某旁家预期胡数高 + 余牌不多
+// 行为：放弃胡牌，只打绝对安全牌（允许拆对子/坎）
+function _aiGetConcedeMode(playerIdx) {
+  // 1. 自己牌力评估：精牌/赖子/坎/口
+  var hand = (playerIdx === 0) ? handCards.map(function(c){return c.ch;}) : (opponentHands[playerIdx] || []);
+  var counts = {};
+  for (var i = 0; i < hand.length; i++) counts[hand[i]] = (counts[hand[i]] || 0) + 1;
+  var jingScore = 0, kanCount = 0, kouCount = 0;
+  for (var ch in counts) {
+    var cnt = counts[ch];
+    if (ch === '赖') jingScore += cnt * 3;
+    else if (RED_JING.has(ch)) jingScore += cnt * 1.5;
+    else if (BLACK_JING.has(ch)) jingScore += cnt;
+    if (cnt >= 3) kanCount++;
+  }
+  for (var ki = 0; ki < ALL_KOU_LIST.length; ki++) {
+    var ch1 = ALL_KOU_LIST[ki][0], ch2 = ALL_KOU_LIST[ki][1];
+    if ((counts[ch1]||0) > 0 && (counts[ch2]||0) > 0) kouCount++;
+  }
+  // 弱牌判据：精+赖<=1.5 且 坎<=1 且 口<=2
+  var weak = (jingScore <= 1.5) && (kanCount <= 1) && (kouCount <= 2);
+
+  // 2. 旁家威胁：两家 estPoints 最大值（至少一家接近17胡档）；排除自己
+  var maxOppHu = 0;
+  for (var pi = 1; pi <= 2; pi++) {
+    if (pi === playerIdx) continue;  // 自己是出牌者，不算对手
+    var est = _aiEstimateOpponentHu(pi);
+    if (est.estPoints > maxOppHu) maxOppHu = est.estPoints;
+  }
+  var oppThreat = maxOppHu >= 3.5;
+
+  // 3. 余牌比例（晚局判定）
+  var totalCards = 0;
+  for (var ch2 in G_CARD_TOTALS) totalCards += G_CARD_TOTALS[ch2];
+  var remainRatio = totalCards > 0 ? (G.deckCount / totalCards) : 1;
+  var lateGame = remainRatio <= 0.45;
+
+  var concede = weak && oppThreat && lateGame;
+  return { concede: concede, weak: weak, oppThreat: oppThreat, maxOppHu: maxOppHu,
+           remainRatio: remainRatio, lateGame: lateGame, jingScore: jingScore,
+           kanCount: kanCount, kouCount: kouCount };
+}
+
 // ═══ Phase 7: 预期胡数估算（"两害相权取其轻"基础） ═══
 // 估算旁家预期胡数：明牌区精确查表 + 暗牌启发式计数
 var _aiHuEstCache = { 1: {sig:'', hu:null}, 2: {sig:'', hu:null} };
@@ -8772,6 +8816,8 @@ function _aiL3Cheat(hand, playerIdx) {
   var defenseFactor = _aiGetDefenseFactor(playerIdx);
   var gamePhase = _aiGetGamePhase();
   var strategyMode = _aiGetStrategyMode(playerIdx);
+  // Phase 7.5: 显式止损模式判定
+  var concedeMode = _aiGetConcedeMode(playerIdx);
   
   // Phase 4: 融入旁家行为分析增强听牌推测
   var behaviorGuesses = [];
@@ -8801,6 +8847,8 @@ function _aiL3Cheat(hand, playerIdx) {
 
     if (ch === '赖') retainValue += 50;
     else if (JING_CHARS.has(ch)) retainValue += 4;
+    // Phase 7.5: 止损模式降低保留价值（允许拆对子/坎）
+    if (concedeMode.concede) retainValue *= 0.4;
 
     // 口连接价值
     for (const [ch1, ch2] of ALL_KOU_LIST) {
@@ -8816,7 +8864,7 @@ function _aiL3Cheat(hand, playerIdx) {
     // 但对于老千来说，知道哪些牌旁家需要更重要
 
     // 危险惩罚（概率维度）+ 期望损失（"两害相权取其轻"）
-    let dangerPenalty = danger * 20 + riskCost * 30;
+    let dangerPenalty = (danger * 20 + riskCost * 30) * (concedeMode.concede ? 2.0 : 1.0);
 
     // 可见度加成：旁家已经有很多该字符的可见牌→打出去相对安全
     let visibilityBonus = Math.min(5, exposure * 0.5);
@@ -8835,7 +8883,10 @@ function _aiL3Cheat(hand, playerIdx) {
       }
       // Phase 4: 听牌的有效性评估——外部还有多少张听牌
       var tingEffectiveness = tingViability > 0 ? (tingRemainSum / tingViability) : 0;
-      discardPriority = 10000 + ting.maxHu * 100 * phaseTingMult + ting.tingCount * 50 * phaseTingMult + tingEffectiveness * 30;
+      // Phase 7.5: 止损模式下听牌权重大幅降低（不追求胡牌）
+      var tingBase = concedeMode.concede ? 1000 : 10000;
+      var tingMult2 = concedeMode.concede ? 10 : phaseTingMult;
+      discardPriority = tingBase + ting.maxHu * 100 * tingMult2 + ting.tingCount * 50 * tingMult2 + tingEffectiveness * 30;
     } else {
       // Phase 4: 非听牌时受攻防模式影响
       discardPriority = -retainValue + trackSafety - dangerPenalty * defenseFactor.dangerMultiplier + visibilityBonus;
@@ -8855,8 +8906,8 @@ function _aiL3Cheat(hand, playerIdx) {
   // 按优先级降序排列，选最高
   scored.sort((a, b) => b.discardPriority - a.discardPriority);
 
-  // 如果最高优先级是听牌，直接选它
-  if (scored.length > 0 && scored[0].ting.canTing) {
+  // 如果最高优先级是听牌，直接选它（止损模式下不追求听牌，跳过）
+  if (scored.length > 0 && scored[0].ting.canTing && !concedeMode.concede) {
     // 增强: 听牌质量综合评估 + 防守听牌
     // 先收集所有听牌候选
     var tingCandidates = scored.filter(function(s){return s.ting.canTing;});
@@ -8940,7 +8991,8 @@ function _aiL3Cheat(hand, playerIdx) {
 
   // 否则选优先级最高（最应出）且非绝对危险的非听牌
   // Phase 4: 危险阈值受攻防模式影响
-  var dangerThreshold = strategyMode.mode === 'defend' ? 0.4 : 0.7;
+  // Phase 7.5: 止损模式阈值更低（只打绝对安全牌）
+  var dangerThreshold = concedeMode.concede ? 0.25 : (strategyMode.mode === 'defend' ? 0.4 : 0.7);
   for (const s of scored) {
     // 增强: 检查behavior analysis推测的旁家听牌
     var behaviorDanger = 0;
@@ -8960,9 +9012,10 @@ function _aiL3Cheat(hand, playerIdx) {
 
   // 兜底: 选危险度 + 期望损失最低的牌（"两害相权取其轻"）
   var safest = scored[0];
+  var riskW = concedeMode.concede ? 1.0 : 0.6;
   for (var _si = 1; _si < scored.length; _si++) {
-    var bestRisk = safest.danger + (safest.riskCost || 0) * 0.6;
-    var curRisk = scored[_si].danger + (scored[_si].riskCost || 0) * 0.6;
+    var bestRisk = safest.danger + (safest.riskCost || 0) * riskW;
+    var curRisk = scored[_si].danger + (scored[_si].riskCost || 0) * riskW;
     if (curRisk < bestRisk) safest = scored[_si];
   }
   return hand.indexOf(safest.ch);
