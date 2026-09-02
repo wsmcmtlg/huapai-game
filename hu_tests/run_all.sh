@@ -33,6 +33,7 @@ run test_hu_chuan_032.js         # 修复2: 穿牌3皮2赖查表(41→67)
 run test_hu_regression.js        # 回归5用例(不劣化/不误改/扎牌/无扩展)
 run test_chuan_table.js          # 红精穿牌6条表驱动
 run test_hu_perf.js              # 性能(120ms AI预算内)
+run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 
 echo "════════════════════════════════════════"
 echo "结果: 通过 $PASS / 失败 $FAIL"

@@ -2564,6 +2564,42 @@ function getDangerScore(ch) {
   }
   return Math.min(1, maxDanger);
 }
+// ═══ Phase 7: 期望损失评分（"两害相权取其轻"） ═══
+// 与 getDangerScore 取 max 不同，本函数按各家预期胡数加权求和：
+// raw = Σ(各家胡到 ch 的概率 × 计分阶梯权重)，归一化到 0~1
+function getRiskCost(ch) {
+  var raw = 0;
+  // 两家预期胡数权重（固定基准，保证分家差异不被归一化抵消）
+  var _e1 = _aiEstimateOpponentHu(1), _e2 = _aiEstimateOpponentHu(2);
+  var denom = 3.0 * (_e1.estPoints + _e2.estPoints);
+  if (denom <= 0) return 0;
+  for (var pi = 1; pi <= 2; pi++) {
+    // P0: 过牌记录 — 旁家曾过此牌，危险度降低
+    var passDiscount = 1.0;
+    if (G._passRecord && G._passRecord[pi] && G._passRecord[pi][ch]) {
+      passDiscount = 0.3;
+    }
+    // 听牌置信度：取 guessOpponentTing 与 行为分析 的最大值
+    var conf = 0;
+    var gs = guessOpponentTing(pi);
+    for (var i = 0; i < gs.length; i++) {
+      if (gs[i].ch === ch) conf = Math.max(conf, gs[i].c);
+    }
+    var bg = _aiBehaviorBasedTingGuess(pi);
+    for (var bi = 0; bi < bg.length; bi++) {
+      if (bg[bi].ch === ch) conf = Math.max(conf, bg[bi].confidence);
+    }
+    if (conf <= 0) continue;
+    var remain = getRemainingCount(ch);
+    var scarcity = (remain <= 1) ? 2.0 : (remain <= 2) ? 1.5 : 1.0;
+    var handPressure = (opponentHands[pi].length <= 5) ? 1.5 : (opponentHands[pi].length <= 8) ? 1.2 : 1.0;
+    var est = (pi === 1) ? _e1 : _e2;
+    raw += conf * scarcity * handPressure * passDiscount * est.estPoints;
+  }
+  // 归一化：以两家计分权重之和 × 3.0（conf=1, scarcity=2, pressure=1.5 的上界）为基准
+  return Math.min(1, raw / denom);
+}
+
 function printTrackState() {
   var allC = '上大人可知礼化三千孔乙己七十土八九子二四五六七八九十赖', lines = ['[记牌] 字面|余牌取出|总|外部剩余(非庄家)'];
   for (var i = 0; i < allC.length; i++) { var ch = allC[i], u = G_discardCount[ch]||0, t = G_CARD_TOTALS[ch]||5, r = getRemainingCount(ch); lines.push('  '+ch+'|'+u+'/'+t+'|'+r+(r<=1?' !':'')); }
@@ -7966,6 +8002,55 @@ function _aiGetDefenseFactor(playerIdx) {
   return factor;
 }
 
+// ═══ Phase 7: 预期胡数估算（"两害相权取其轻"基础） ═══
+// 估算旁家预期胡数：明牌区精确查表 + 暗牌启发式计数
+var _aiHuEstCache = { 1: {sig:'', hu:null}, 2: {sig:'', hu:null} };
+
+function _aiEstimateOpponentHu(pi) {
+  var hand = opponentHands[pi] || [];
+  var sig = hand.join(',');
+  var c = _aiHuEstCache[pi];
+  if (c && c.sig === sig && c.hu) return c.hu;
+
+  // 1. 明牌区已知胡数（精牌查表精确）
+  var meldHu = calcMeldHuTotal(pi);
+
+  // 2. 暗牌启发式：手牌中的精牌/赖子/坎牌/对子潜在胡数
+  var counts = {};
+  for (var i = 0; i < hand.length; i++) counts[hand[i]] = (counts[hand[i]] || 0) + 1;
+
+  var darkHuMin = 0, darkHuMax = 0;
+  for (var ch in counts) {
+    var cnt = counts[ch];
+    if (ch === '赖') {
+      // 赖子最少当花精+2，主精+4
+      darkHuMin += cnt * 2;
+      darkHuMax += cnt * 4;
+    } else if (RED_JING.has(ch)) {
+      // 红精（三五七）：坎查表5/10胡，对子眼1-2胡
+      darkHuMin += cnt >= 3 ? 5 : (cnt >= 2 ? 1 : 1);
+      darkHuMax += cnt >= 3 ? 10 : (cnt >= 2 ? 2 : 2);
+    } else if (BLACK_JING.has(ch)) {
+      // 黑精（乙九）：坎1-3胡
+      darkHuMin += cnt >= 3 ? 1 : 0;
+      darkHuMax += cnt >= 3 ? 3 : (cnt >= 2 ? 1 : 1);
+    } else {
+      // 非精字面：坎红2/黑1
+      if (cnt >= 3) {
+        darkHuMin += charColor(ch) === 'red' ? 2 : 1;
+        darkHuMax += charColor(ch) === 'red' ? 2 : 1;
+      }
+    }
+  }
+
+  var estHu = meldHu + Math.round((darkHuMin + darkHuMax) / 2);
+  // 阶梯权重：>=17 胡用计分阶梯(17-21→3, 22-26→4, ...)；<17 胡按比例 0~3（保持区分度）
+  var estPoints = estHu >= 17 ? calcPoints(estHu) : (estHu / 17 * 3);
+  var result = { meldHu: meldHu, darkHuMin: darkHuMin, darkHuMax: darkHuMax, estHu: estHu, estPoints: estPoints };
+  _aiHuEstCache[pi] = { sig: sig, hu: result };
+  return result;
+}
+
 // ── 4.3 旁家行为模式识别 ──
 // 统计旁家的行为特征，推测其听牌方向
 
@@ -8151,6 +8236,7 @@ function _aiCalcTingInfoCached(simHand, preMelds) {
 // 在每次出牌/碰牌/扎牌后清除缓存（手牌已变化）
 function _aiClearTingCache() {
   _aiTingCache = {};
+  _aiHuEstCache = { 1: {sig:'', hu:null}, 2: {sig:'', hu:null} };
 }
 
 // ── 5.4 L3候选预筛选 ──
@@ -8200,9 +8286,11 @@ function _aiPreFilterCandidates(hand, playerIdx) {
     
     // 危险分数
     var danger = getDangerScore(ch);
-    
+    // Phase 7: 期望损失（\"两害相权取其轻\"）
+    var riskCost = getRiskCost(ch);
+
     // 出牌优先级（低分=应出）
-    var priority = -retainScore + trackSafety - danger * defenseFactor.dangerMultiplier * 15;
+    var priority = -retainScore + trackSafety - (danger + riskCost * 0.5) * defenseFactor.dangerMultiplier * 15;
     priority *= phaseFactor.aggression;
     
     candidates.push({ ch: ch, priority: priority, cnt: cnt, danger: danger });
@@ -8700,6 +8788,7 @@ function _aiL3Cheat(hand, playerIdx) {
     const cnt = counts[ch];
     const ting = tingMap[ch];
     const danger = getDangerScore(ch);
+    const riskCost = getRiskCost(ch);
     const remain = getRemainingCount(ch);
     const exposure = exposureScore[ch] || 0;
 
@@ -8726,8 +8815,8 @@ function _aiL3Cheat(hand, playerIdx) {
     // 外部剩余多→不太安全（旁家可能摸到利用）
     // 但对于老千来说，知道哪些牌旁家需要更重要
 
-    // 危险惩罚
-    let dangerPenalty = danger * 20;
+    // 危险惩罚（概率维度）+ 期望损失（"两害相权取其轻"）
+    let dangerPenalty = danger * 20 + riskCost * 30;
 
     // 可见度加成：旁家已经有很多该字符的可见牌→打出去相对安全
     let visibilityBonus = Math.min(5, exposure * 0.5);
@@ -8760,7 +8849,7 @@ function _aiL3Cheat(hand, playerIdx) {
       discardPriority *= phaseFactor.aggression;
     }
 
-    scored.push({ch, discardPriority, ting, danger, remain, cnt});
+    scored.push({ch, discardPriority, ting, danger, riskCost, remain, cnt});
   }
 
   // 按优先级降序排列，选最高
@@ -8799,13 +8888,16 @@ function _aiL3Cheat(hand, playerIdx) {
 
         // 2. 听牌安全度: 听牌字符是否被旁家需要
         var tingDanger = 0;
+        var tingRisk = 0;
         for (var _tc = 0; _tc < tingChars.length; _tc++) {
           tingDanger += getDangerScore(tingChars[_tc]);
+          tingRisk += getRiskCost(tingChars[_tc]);
         }
         var avgTingDanger = tingChars.length > 0 ? tingDanger / tingChars.length : 0;
+        var avgTingRisk = tingChars.length > 0 ? tingRisk / tingChars.length : 0;
 
-        // 3. 综合评分: 实际听牌张数 × 30 + 最大胡数 × 15 - 危险度 × 50
-        var curScore = actualTingCount * 30 + (cur.ting.maxHu || 0) * 15 - avgTingDanger * 50;
+        // 3. 综合评分: 实际听牌张数 × 30 + 最大胡数 × 15 - 危险度 × 30 - 期望损失 × 25
+        var curScore = actualTingCount * 30 + (cur.ting.maxHu || 0) * 15 - avgTingDanger * 30 - avgTingRisk * 25;
         // 如果听牌字符外部剩余都为0（听死牌），大幅降权
         var hasLiveTing = false;
         for (var _tc = 0; _tc < tingChars.length; _tc++) {
@@ -8858,15 +8950,20 @@ function _aiL3Cheat(hand, playerIdx) {
       }
     }
     var effectiveDanger = Math.max(s.danger, behaviorDanger);
-    if (s.discardPriority > -100 && effectiveDanger < dangerThreshold) {
+    // Phase 7: 阈值融合期望损失（"两害相权取其轻"），防守模式权重更高
+    var riskFactor = strategyMode.mode === 'defend' ? 1.0 : 0.6;
+    var effectiveRisk = effectiveDanger + (s.riskCost || 0) * riskFactor;
+    if (s.discardPriority > -100 && effectiveRisk < dangerThreshold) {
       return hand.indexOf(s.ch);
     }
   }
 
-  // 兜底: 选危险度最低的牌
+  // 兜底: 选危险度 + 期望损失最低的牌（"两害相权取其轻"）
   var safest = scored[0];
   for (var _si = 1; _si < scored.length; _si++) {
-    if (scored[_si].danger < safest.danger) safest = scored[_si];
+    var bestRisk = safest.danger + (safest.riskCost || 0) * 0.6;
+    var curRisk = scored[_si].danger + (scored[_si].riskCost || 0) * 0.6;
+    if (curRisk < bestRisk) safest = scored[_si];
   }
   return hand.indexOf(safest.ch);
 }
