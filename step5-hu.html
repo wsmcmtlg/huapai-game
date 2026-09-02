@@ -7679,7 +7679,18 @@ function _aiPenBenefit(hand, ch, playerIdx) {
   if (remain <= 1) benefit -= 10; // 外部只剩1张→碰了浪费（别人很难摸到，碰不碰都无所谓）
   if (remain >= 3) benefit += 3; // 外部充足→碰了合理
   
-  return {benefit: benefit, tingAfter: tingInfo, tingBefore: preTingInfo, penHu: penHu};
+  // Phase 7.7: 放铳成本——碰后必须立即打出一张牌，若手中无安全牌可打则否决
+  var forcedRisk = null;
+  var threat = _aiGetResponseThreat();
+  if (threat.hasThreat) {
+    forcedRisk = _aiForcedDiscardRisk(simHand, playerIdx);
+    if (forcedRisk.minRisk > RESP_SAFE_LINE) {
+      return {benefit: benefit, tingAfter: tingInfo, tingBefore: preTingInfo, penHu: penHu, reject: true, rejectReason: 'no_safe_discard'};
+    }
+    benefit -= forcedRisk.minRisk * RESP_RISK_WEIGHT;
+  }
+  
+  return {benefit: benefit, tingAfter: tingInfo, tingBefore: preTingInfo, penHu: penHu, reject: false, forcedRisk: forcedRisk};
 }
 
 // 计算扎牌收益：扎后4张在手牌区(可灵活) vs 保留4张散在手中
@@ -7783,6 +7794,8 @@ function _aiDecidePen(hand, ch, playerIdx) {
   // 高手：基础策略 - 有利才碰
   if (lv >= 1) {
     var result = _aiPenBenefit(hand, ch, playerIdx);
+    // Phase 7.7: 碰后无安全牌可打（放铳风险高）→ 直接否决
+    if (result.reject) return false;
     // Phase 4: 阶段感知调整碰牌阈值
     var baseThreshold = (lv === 1) ? -5 : (lv === 2) ? 0 : 3;
     if (lv >= 2) {
@@ -8048,6 +8061,59 @@ function _aiFeedScore(ch, feedTarget) {
     score -= 1;
   }
   return score;
+}
+
+// ═══ Phase 7.7: 响应决策放铳成本（2026-09-02） ═══
+// 响应（碰/扎/招/吃）后响应者必须立即打出一张牌——若手中无安全牌可打，
+// 响应反而制造放铳给危险家的机会。放铳成本 = 最安全可打牌的期望损失。
+var RESP_SAFE_LINE = 0.25;   // 响应后最安全可打牌的放铳风险阈值（>即无安全牌）
+var RESP_RISK_WEIGHT = 30;  // 放铳成本扣益系数（与L3 riskCost*30一致）
+
+// 是否有危险家（任一家旁家 estPoints>=3.5，与止损 oppThreat 同阈值）
+function _aiGetResponseThreat() {
+  var maxOppHu = 0, threatPi = -1;
+  for (var pi = 1; pi <= 2; pi++) {
+    var est = _aiEstimateOpponentHu(pi);
+    if (est.estPoints > maxOppHu) { maxOppHu = est.estPoints; threatPi = pi; }
+  }
+  return { hasThreat: maxOppHu >= 3.5, maxOppHu: maxOppHu, threatPi: threatPi };
+}
+
+// 模拟响应者被迫出牌的风险：simHand 中最安全可打牌对"非响应者旁家"的期望损失
+// 返回 { minRisk, safestChar }（minRisk 为 0~1，与 getRiskCost 同量纲）
+function _aiForcedDiscardRisk(simHand, responderIdx) {
+  var _e1 = _aiEstimateOpponentHu(1), _e2 = _aiEstimateOpponentHu(2);
+  var denom = 3.0 * (_e1.estPoints + _e2.estPoints);
+  if (denom <= 0) return { minRisk: 0, safestChar: null };
+
+  var counts = {};
+  for (var i = 0; i < simHand.length; i++) counts[simHand[i]] = (counts[simHand[i]] || 0) + 1;
+
+  var minRisk = Infinity, safestChar = null;
+  for (var ch in counts) {
+    if (counts[ch] > 3) continue; // 4张不拆，不算可打牌
+    var raw = 0;
+    for (var pi = 1; pi <= 2; pi++) {
+      if (pi === responderIdx) continue; // 排除自己：自己不会胡自己打出的牌
+      var passDiscount = 1.0;
+      if (G._passRecord && G._passRecord[pi] && G._passRecord[pi][ch]) passDiscount = 0.3;
+      var conf = 0;
+      var gs = guessOpponentTing(pi);
+      for (var gi = 0; gi < gs.length; gi++) if (gs[gi].ch === ch) conf = Math.max(conf, gs[gi].c);
+      var bg = _aiBehaviorBasedTingGuess(pi);
+      for (var bi = 0; bi < bg.length; bi++) if (bg[bi].ch === ch) conf = Math.max(conf, bg[bi].confidence);
+      if (conf <= 0) continue;
+      var remain = getRemainingCount(ch);
+      var scarcity = (remain <= 1) ? 2.0 : (remain <= 2) ? 1.5 : 1.0;
+      var handPressure = (opponentHands[pi].length <= 5) ? 1.5 : (opponentHands[pi].length <= 8) ? 1.2 : 1.0;
+      var est = (pi === 1) ? _e1 : _e2;
+      raw += conf * scarcity * handPressure * passDiscount * est.estPoints;
+    }
+    var risk = Math.min(1, raw / denom);
+    if (risk < minRisk) { minRisk = risk; safestChar = ch; }
+  }
+  if (minRisk === Infinity) return { minRisk: 0, safestChar: null };
+  return { minRisk: minRisk, safestChar: safestChar };
 }
 
 // ═══ Phase 7.5: 显式止损模式（concede） ═══
