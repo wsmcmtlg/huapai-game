@@ -2616,8 +2616,10 @@ function getDynamicSortOrder() {
   for (var i = 0; i < handCards.length; i++) {
     freeCounts[handCards[i].ch] = (freeCounts[handCards[i].ch] || 0) + 1;
   }
-  var sanDowngrade = !freeCounts['化'] && !freeCounts['千'];
-  var yiDowngrade = !freeCounts['孔'] && !freeCounts['己'];
+  // ★ 降级条件用"任一缺失"：三组成固定顺子"化三千"须同时有化、千，缺任一即降为数字序
+  var sanDowngrade = !freeCounts['化'] || !freeCounts['千'];
+  // ★ 乙组成固定顺子"孔乙己"须同时有孔、己，缺任一即降为数字序
+  var yiDowngrade = !freeCounts['孔'] || !freeCounts['己'];
   if (!sanDowngrade && !yiDowngrade) return SORT_ORDER;
   var order = '';
   var chars = SORT_ORDER.split('');
@@ -2627,10 +2629,13 @@ function getDynamicSortOrder() {
     if (c === '三' && sanDowngrade) { continue; }
     if (c === '乙' && yiDowngrade) { continue; }
     if (c === '二') {
+      // ★ 乙插在二前、三插在二后，符合"乙二三四五"数字顺子习惯
       if (yiDowngrade && !yiInserted) { order += '乙'; yiInserted = true; }
+      order += c;
       if (sanDowngrade && !sanInserted) { order += '三'; sanInserted = true; }
+    } else {
+      order += c;
     }
-    order += c;
   }
   return order;
 }
