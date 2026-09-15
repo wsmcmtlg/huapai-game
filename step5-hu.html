@@ -1587,6 +1587,15 @@
   width: 15px; height: 15px; background: #d97706;
   border-radius: 50%; cursor: pointer; border: none;
 }
+.snd-select {
+  -webkit-appearance: none; appearance: none;
+  width: 122px; padding: 5px 8px;
+  background: rgba(232,224,208,0.15); border: 1px solid rgba(232,224,208,0.3);
+  border-radius: 6px; color: #e8e0d0; font-size: 13px; outline: none;
+  cursor: pointer; flex-shrink: 0;
+}
+.snd-select option { background: #3a2f25; color: #e8e0d0; }
+.snd-tip { font-size: 12px; color: #d97706; justify-content: flex-start; margin-top: -6px; }
 .snd-close {
   display: block; margin: 16px auto 0; padding: 7px 28px;
   background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3);
@@ -1786,6 +1795,15 @@
         <div class="snd-switch on" id="voice-switch" onclick="toggleVoice()"></div>
       </div>
       <div class="snd-row">
+        <span class="snd-label">配音包</span>
+        <select class="snd-select" id="voice-pack" onchange="changeVoicePack(this.value)">
+          <option value="mandarin">普通话</option>
+          <option value="gongan">公安口音</option>
+          <option value="songzi">松滋口音</option>
+        </select>
+      </div>
+      <div class="snd-row snd-tip" id="voice-pack-tip" style="display:none">该配音包暂无音频，已回退普通话播报。提供录音后即可启用。</div>
+      <div class="snd-row">
         <span class="snd-label">音效音量</span>
         <input type="range" class="snd-slider" id="sfx-volume" min="0" max="100" value="70" oninput="updateSfxVolume(this.value)">
       </div>
@@ -1951,6 +1969,14 @@ const SoundManager = (function() {
     v_play_lai:{g:'voice',d:'赖'}, v_play_ben:{g:'voice',d:'本'},
   };
   let sfxOn=true, voiceOn=true, sfxVol=0.7, voiceVol=0.8, ctx=null;
+  /* 配音包框架：mandarin=普通话(内嵌基础音频)；gongan/songzi 预留，填入录音 base64 即可启用 */
+  const voicePacks={
+    mandarin:{},
+    gongan:{},
+    songzi:{}
+  };
+  let voicePack='mandarin';
+  const vpackCache={};
   const cache={};
 
   function _ctx(){
@@ -2004,6 +2030,12 @@ const SoundManager = (function() {
     const cfg=CFG[name]; if(!cfg)return;
     if(cfg.g==='sfx' && !sfxOn) return;
     if(cfg.g==='voice' && !voiceOn) return;
+    /* 配音包覆盖：当前包若含该音自定义音频则优先播放（mandarin 为空则用下方基础音频） */
+    if(cfg.g==='voice' && voicePacks[voicePack] && voicePacks[voicePack][name]){
+      let va=vpackCache[name];
+      if(!va){ try{ va=new Audio(voicePacks[voicePack][name]); va.preload='auto'; vpackCache[name]=va; }catch(e){ va=null; } }
+      if(va){ va.volume=voiceVol; va.currentTime=0; va.play().catch(()=>{}); return; }
+    }
     if(cache[name]&&cache[name] instanceof Audio){
       const v=cfg.g==='sfx'?sfxVol:voiceVol;
       cache[name].volume=v; cache[name].currentTime=0;
@@ -2016,6 +2048,9 @@ const SoundManager = (function() {
   function setVoiceEnabled(v){ voiceOn=v; _save(); _syncUI(); }
   function setSfxVolume(v){ sfxVol=Math.max(0,Math.min(1,v)); _save(); }
   function setVoiceVolume(v){ voiceVol=Math.max(0,Math.min(1,v)); _save(); }
+  function setVoicePack(p){ if(voicePacks[p]) voicePack=p; _save(); _syncUI(); }
+  function getVoicePack(){ return voicePack; }
+  function getVoicePackCount(p){ return (p&&voicePacks[p])?Object.keys(voicePacks[p]).length:0; }
   function getSfxEnabled(){ return sfxOn; }
   function getVoiceEnabled(){ return voiceOn; }
 
@@ -2025,6 +2060,7 @@ const SoundManager = (function() {
       localStorage.setItem('hp_vce',voiceOn?'1':'0');
       localStorage.setItem('hp_sv',sfxVol.toFixed(2));
       localStorage.setItem('hp_vv',voiceVol.toFixed(2));
+      localStorage.setItem('hp_vpack',voicePack);
     }catch(e){}
   }
   function loadPrefs(){
@@ -2033,6 +2069,8 @@ const SoundManager = (function() {
       voiceOn=localStorage.getItem('hp_vce')!=='0';
       sfxVol=parseFloat(localStorage.getItem('hp_sv'))||0.7;
       voiceVol=parseFloat(localStorage.getItem('hp_vv'))||0.8;
+      var _vp=localStorage.getItem('hp_vpack');
+      if(_vp && voicePacks[_vp]) voicePack=_vp; else voicePack='mandarin';
     }catch(e){}
     _syncUI();
   }
@@ -2050,9 +2088,16 @@ const SoundManager = (function() {
       btn.innerHTML=(sfxOn||voiceOn)?'&#128266;':'&#128263;';
       btn.classList.toggle('muted',!sfxOn&&!voiceOn);
     }
+    const sel=document.getElementById('voice-pack');
+    if(sel) sel.value=voicePack;
+    const tip=document.getElementById('voice-pack-tip');
+    if(tip){
+      const n=voicePacks[voicePack]?Object.keys(voicePacks[voicePack]).length:0;
+      tip.style.display=(voicePack!=='mandarin'&&n===0)?'':'none';
+    }
   }
 
-  return {play,preload,loadPrefs,setSfxEnabled,setVoiceEnabled,setSfxVolume,setVoiceVolume,getSfxEnabled,getVoiceEnabled,_syncUI};
+  return {play,preload,loadPrefs,setSfxEnabled,setVoiceEnabled,setSfxVolume,setVoiceVolume,setVoicePack,getVoicePack,getVoicePackCount,getSfxEnabled,getVoiceEnabled,_syncUI};
 })();
 
 /* 音效面板交互 */
@@ -2121,6 +2166,12 @@ function toggleCardImg(){
 function toggleVoice(){var s=document.getElementById('voice-switch');SoundManager.setVoiceEnabled(s?!s.classList.contains('on'):false);}
 function updateSfxVolume(v){SoundManager.setSfxVolume(v/100);}
 function updateVoiceVolume(v){SoundManager.setVoiceVolume(v/100);}
+function changeVoicePack(v){
+  SoundManager.setVoicePack(v);
+  SoundManager.play('click');
+  var tip=document.getElementById('voice-pack-tip');
+  if(tip){ var n=SoundManager.getVoicePackCount(v); tip.style.display=(v!=='mandarin'&&n===0)?'':'none'; }
+}
 SoundManager.loadPrefs();
 
 /* 预加载真实音效文件 */
