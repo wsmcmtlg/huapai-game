@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>花牌卡片样式对比</title>
+<style>
+  body { background:#1e5b4d; font-family:"YiShanBeiZhuanTi","SimSun",serif; padding:24px; margin:0; }
+  .section { margin-bottom:30px; }
+  .section-title { color:#efe9d8; font-size:16px; margin-bottom:10px; letter-spacing:1px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  /* 标签 */
+  .tag { color:#b9d0c6; font-size:12px; margin:14px 0 6px; }
+
+  /* ═══════ 当前卡片样式 ═══════ */
+  .cur .card {
+    width:52px; height:72px; background:#faf5e6;
+    border-radius:8px; border:1px solid #d4b878;
+    display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+    position:relative; box-shadow:0 2px 4px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+  .cur .card::before { content:""; position:absolute; inset:2px; border:0.5px solid rgba(180,160,120,0.3); border-radius:5px; }
+  .cur .card-char { font-size:30px; font-weight:900; }
+  .cur .card-char.red { color:#c0392b; }
+  .cur .card-char.black { color:#1a1a1a; }
+  .cur .card.v-flower { border-color:#bf9b30; background:linear-gradient(180deg,#fdf6e3 0%,#f5e6c8 100%); }
+  .cur .card.v-flower::before { border:2.5px solid rgba(191,155,48,0.7); border-radius:2px; inset:2px; }
+  .cur .card.laizi { background:linear-gradient(160deg,#fef3c7 0%,#fde68a 50%,#fbbf24 100%); border-color:#b8860b; }
+  .cur .card.laizi .card-char { background:linear-gradient(180deg,#c0392b,#b8860b); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:32px; }
+  .cur .card-back { background:linear-gradient(135deg,#7c3aed,#4c1d95); border-color:#5b21b6; }
+  .cur .card-back-text { font-size:18px; color:rgba(255,255,255,0.3); }
+  /* 花精底纹 */
+  .cur .card.hua-mei { background:linear-gradient(160deg,#fff0f3 0%,#fce7f3 40%,#fbcfe8 100%); border-color:#ec4899; }
+  .cur .card.hua-lan { background:linear-gradient(160deg,#eff6ff 0%,#dbeafe 40%,#bfdbfe 100%); border-color:#3b82f6; }
+  .cur .card.hua-zhu { background:linear-gradient(160deg,#f0fdf4 0%,#dcfce7 40%,#bbf7d0 100%); border-color:#22c55e; }
+  .cur .card.hua-xia { background:linear-gradient(160deg,#fffbeb 0%,#fef3c7 40%,#fde68a 100%); border-color:#e5b84c; }
+  .cur .card.hua-dong { background:linear-gradient(160deg,#f8fafc 0%,#e2e8f0 40%,#cbd5e1 100%); border-color:#94a3b8; }
+
+  /* ═══════ 玉质麻将样式（平面）═══════ */
+  .jade .card {
+    width:52px; height:72px;
+    background:
+      radial-gradient(120% 95% at 28% 12%, rgba(255,255,255,0.95), rgba(255,255,255,0) 50%),
+      linear-gradient(152deg, #fffdf7 0%, #f5efe0 55%, #e8dec5 100%);
+    border:1px solid rgba(168,146,104,0.6);
+    border-radius:10px;
+    display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+    position:relative;
+    box-shadow:0 2px 5px rgba(80,95,60,0.30), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(150,130,90,0.20);
+  }
+  /* 玉质云纹内框纹理 */
+  .jade .card::before {
+    content:""; position:absolute; inset:3px; border-radius:7px; pointer-events:none;
+    background:
+      radial-gradient(55% 40% at 32% 22%, rgba(255,255,255,0.45), transparent 65%),
+      radial-gradient(45% 32% at 72% 72%, rgba(176,154,112,0.14), transparent 72%);
+    border:0.5px solid rgba(255,255,255,0.5);
+  }
+  .jade .card-char { font-size:30px; font-weight:900; }
+  .jade .card-char.red { color:#b8392b; text-shadow:0 0 1.5px rgba(120,30,20,0.18); }
+  .jade .card-char.black { color:#26221b; text-shadow:0 0 1.5px rgba(40,35,20,0.18); }
+  /* 花精/皮精：金色内框，底座玉质化 */
+  .jade .card.v-flower { border-color:#b98a2e; }
+  .jade .card.v-flower::before { border:2px solid rgba(185,138,46,0.55); inset:3px; border-radius:5px; }
+  /* 赖子：暖金玉 */
+  .jade .card.laizi { border-color:#c9a03a; background:radial-gradient(120% 95% at 28% 12%, rgba(255,244,214,0.9), transparent 55%), linear-gradient(152deg,#fdf3d3 0%,#f5e3ae 55%,#eccf86 100%); }
+  .jade .card.laizi .card-char { background:linear-gradient(180deg,#b8392b,#c9a03a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:32px; }
+  /* 牌背：深绿玉 */
+  .jade .card-back { background:radial-gradient(120% 95% at 30% 15%, rgba(255,255,255,0.14), transparent 55%), linear-gradient(152deg,#2f6b5a,#1d4a3e 60%,#153b31); border-color:rgba(120,160,140,0.5); }
+  .jade .card-back::before { border:0.5px solid rgba(180,210,195,0.25); }
+  .jade .card-back-text { font-size:18px; color:rgba(235,245,240,0.35); }
+</style>
+</head>
+<body>
+
+  <!-- ═══════ 当前样式 ═══════ -->
+  <div class="section">
+    <div class="section-title">当前样式（米白 + 金色边）</div>
+    <div class="tag">普通红字</div>
+    <div class="row cur">
+      <div class="card"><span class="card-char red">上</span></div>
+      <div class="card"><span class="card-char red">大</span></div>
+      <div class="card"><span class="card-char red">可</span></div>
+    </div>
+    <div class="tag">普通黑字</div>
+    <div class="row cur">
+      <div class="card"><span class="card-char black">礼</span></div>
+      <div class="card"><span class="card-char black">二</span></div>
+      <div class="card"><span class="card-char black">土</span></div>
+    </div>
+    <div class="tag">花精（梅兰竹菊冬）</div>
+    <div class="row cur">
+      <div class="card v-flower hua-mei"><span class="card-char red">三</span></div>
+      <div class="card v-flower hua-lan"><span class="card-char red">五</span></div>
+      <div class="card v-flower hua-zhu"><span class="card-char red">七</span></div>
+      <div class="card v-flower hua-xia"><span class="card-char red">乙</span></div>
+      <div class="card v-flower hua-dong"><span class="card-char red">九</span></div>
+    </div>
+    <div class="tag">赖子 / 牌背</div>
+    <div class="row cur">
+      <div class="card laizi"><span class="card-char">本</span></div>
+      <div class="card-back"><span class="card-back-text">花</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════ 玉质样式 ═══════ -->
+  <div class="section">
+    <div class="section-title">玉质麻将样式（平面 · 奶白温润）</div>
+    <div class="tag">普通红字</div>
+    <div class="row jade">
+      <div class="card"><span class="card-char red">上</span></div>
+      <div class="card"><span class="card-char red">大</span></div>
+      <div class="card"><span class="card-char red">可</span></div>
+    </div>
+    <div class="tag">普通黑字</div>
+    <div class="row jade">
+      <div class="card"><span class="card-char black">礼</span></div>
+      <div class="card"><span class="card-char black">二</span></div>
+      <div class="card"><span class="card-char black">土</span></div>
+    </div>
+    <div class="tag">花精（梅兰竹菊冬）</div>
+    <div class="row jade">
+      <div class="card v-flower hua-mei"><span class="card-char red">三</span></div>
+      <div class="card v-flower hua-lan"><span class="card-char red">五</span></div>
+      <div class="card v-flower hua-zhu"><span class="card-char red">七</span></div>
+      <div class="card v-flower hua-xia"><span class="card-char red">乙</span></div>
+      <div class="card v-flower hua-dong"><span class="card-char red">九</span></div>
+    </div>
+    <div class="tag">赖子 / 牌背</div>
+    <div class="row jade">
+      <div class="card laizi"><span class="card-char">本</span></div>
+      <div class="card-back"><span class="card-back-text">花</span></div>
+    </div>
+  </div>
+
+</body>
+</html>

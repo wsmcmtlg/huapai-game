@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>花牌玉质卡片 · 新旧对比</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    min-height:100vh;
+    font-family: "Microsoft YaHei", sans-serif;
+    background: radial-gradient(120% 100% at 50% 20%, #3f8f4f 0%, #2f7040 45%, #1d4f2d 100%);
+    display:flex; flex-direction:column; align-items:center; padding:40px 20px;
+  }
+  h1 { color:#f3f6e8; font-size:24px; margin-bottom:6px; letter-spacing:2px; text-shadow:0 2px 6px rgba(0,0,0,.4); }
+  .sub { color:#cfe3c6; font-size:14px; margin-bottom:30px; opacity:.9; }
+  .row { display:flex; gap:60px; flex-wrap:wrap; justify-content:center; }
+  .col { text-align:center; }
+  .col-title { color:#fff; font-size:17px; font-weight:700; margin-bottom:16px; letter-spacing:2px; }
+  .col.old .col-title { color:#d8d8d8; }
+  .col.new .col-title { color:#ffe9a8; }
+  .cards { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; padding:22px 26px; background:rgba(0,0,0,.16); border-radius:16px; box-shadow:inset 0 1px 3px rgba(0,0,0,.25); }
+  .card {
+    width:40px; height:56px;
+    background-size:cover; background-position:center; background-repeat:no-repeat;
+    border-radius:12px;
+    box-shadow:0 3px 8px rgba(0,0,0,.35);
+  }
+  .old .card { border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .card-label { margin-top:8px; color:#dfe9da; font-size:12px; opacity:.85; }
+</style>
+</head>
+<body>
+  <h1>花牌卡片 · 奶白玉质麻将质感</h1>
+  <div class="sub">同一套牌，左边旧版纯白卡片，右边新版玉质卡片</div>
+  <div class="row">
+    <div class="col old">
+      <div class="col-title">旧版（纯白）</div>
+      <div class="cards">
+        <div><div class="card" style="background-image:url('cards_backup/上.png')"></div><div class="card-label">上</div></div>
+        <div><div class="card" style="background-image:url('cards_backup/大.png')"></div><div class="card-label">大</div></div>
+        <div><div class="card" style="background-image:url('cards_backup/人.png')"></div><div class="card-label">人</div></div>
+        <div><div class="card" style="background-image:url('cards_backup/七.png')"></div><div class="card-label">七</div></div>
+        <div><div class="card" style="background-image:url('cards_backup/赖.png')"></div><div class="card-label">赖</div></div>
+      </div>
+    </div>
+    <div class="col new">
+      <div class="col-title">新版（奶白玉质）</div>
+      <div class="cards">
+        <div><div class="card" style="background-image:url('cards/上.png?v=jade1')"></div><div class="card-label">上</div></div>
+        <div><div class="card" style="background-image:url('cards/大.png?v=jade1')"></div><div class="card-label">大</div></div>
+        <div><div class="card" style="background-image:url('cards/人.png?v=jade1')"></div><div class="card-label">人</div></div>
+        <div><div class="card" style="background-image:url('cards/七.png?v=jade1')"></div><div class="card-label">七</div></div>
+        <div><div class="card" style="background-image:url('cards/赖.png?v=jade1')"></div><div class="card-label">赖</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
