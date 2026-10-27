@@ -7930,6 +7930,21 @@ function _aiDecideZha(hand, ch, playerIdx, isWildZha) {
       if (!currentTing.canTing && afterTing.canTing) {
         return true;
       }
+
+      // Phase 9: 忍扎三问（老千专属，10号§2.6/11号§2.6 用户校准）
+      // 问1 扎了能快到听吗；问2 暴露代价可接受吗(牌力)；问3 忍下去没活路吗(余牌)
+      var _flowerJ9 = 0;
+      for (var _fj9 = 0; _fj9 < hand.length; _fj9++) { if (RED_JING.has(hand[_fj9])) _flowerJ9++; }
+      var _bigHuDir9 = _flowerJ9 >= 3;                       // §2.6.1 三花及以上主精扎→大胡方向
+      var _ownPot9 = _aiHuPotential(hand, preMelds).potential;
+      var _weak9 = _ownPot9 < 12;                             // §2.6.2 起手<12胡以守为主
+      var _deckRatio9 = G.deckCount / 112;
+      var _q1 = afterTing.canTing || afterTing.canTingStruct || result.benefit >= 12;
+      var _goZha9;
+      if (_bigHuDir9) _goZha9 = _q1;                                    // 牌好：快扎快胡不让跑
+      else if (_weak9) _goZha9 = (_deckRatio9 <= 0.3 && result.benefit >= 8);  // 牌差：忍扎为主，绝境才扎
+      else _goZha9 = _q1 && (_deckRatio9 <= 0.35 || result.benefit >= 15);     // 中间：能快听且(忍无活路或收益大)
+      if (!_goZha9) return false;   // 三问不齐→忍扎（藏拙，喂牌自洽）
     }
     return result.shouldZha;
   }
@@ -9060,6 +9075,20 @@ function _aiL3Cheat(hand, playerIdx) {
 
   // Phase 8: 胡数引擎——当前手牌潜力（基准）
   var _curPot = _aiHuPotential(hand, preMelds);
+  // Phase 9: §2.6 实战四规则 + 双向牌流（老千）
+  var _flowerJing9 = 0;
+  for (var _fjB = 0; _fjB < hand.length; _fjB++) { if (RED_JING.has(hand[_fjB])) _flowerJing9++; }
+  var _bigHuDirB = _flowerJing9 >= 3;                  // 规则1: 大/小胡方向
+  var _weakB = _curPot.potential < 12;                 // 规则2: 起手<12胡以守为主
+  _aiInitOppBehavior();
+  var _zhaCnt1 = G._oppBehavior[1].zhaCount, _zhaCnt2 = G._oppBehavior[2].zhaCount;
+  var _heavyB = (_zhaCnt1 >= 2) || (_zhaCnt2 >= 2);    // 规则3: 旁家扎≥2次重点防守
+  var _feedOtherB = (_zhaCnt1 >= 2 && _zhaCnt2 < 2) ? 2 : ((_zhaCnt2 >= 2 && _zhaCnt1 < 2) ? 1 : 0); // 撒灰喂另一旁家
+  var _deckRatioB = G.deckCount / 112;
+  var _downB = (playerIdx + 1) % 3, _upB = (playerIdx + 2) % 3;
+  var _bgDownB = _downB >= 1 ? _aiBehaviorBasedTingGuess(_downB) : [];
+  var _bgUpB = _upB >= 1 ? _aiBehaviorBasedTingGuess(_upB) : [];
+  var _upSafeB = _upB >= 1 && G._oppBehavior[_upB].zhaCount === 0 && _aiEstimateOpponentHu(_upB) < 20; // 上家无扎且不危险
 
   const scored = [];
   for (const ch of filteredChars) {
@@ -9111,6 +9140,10 @@ function _aiL3Cheat(hand, playerIdx) {
     // feedScore>0.5 已保证"便宜家需要显著高于危险家需要"（危险家需要以-3×conf计负分）
     if (feedTarget && feedScore > 0.5) dangerPenalty *= 0.25;
 
+    // Phase 9: 规则2 守势(牌差<12胡)危险惩罚加重；规则3 旁家扎≥2次重点防守
+    if (_weakB) dangerPenalty *= 1.4;
+    if (_heavyB) dangerPenalty *= 1.25;
+
     // 可见度加成：旁家已经有很多该字符的可见牌→打出去相对安全
     let visibilityBonus = Math.min(5, exposure * 0.5);
 
@@ -9141,6 +9174,18 @@ function _aiL3Cheat(hand, playerIdx) {
       // Phase 8.1: 结构听牌感知（全拆+眼但胡数未够17——往精牌牌型方向收敛）
       if (!ting.canTingStruct) discardPriority -= 500;   // 打出后结构不全拆→保留
       else discardPriority += 100;                        // 打出后仍结构听→鼓励换牌向胡数发展
+      // Phase 9: 规则1 大胡方向——精牌潜力损失额外罚（做大不做小）
+      if (_bigHuDirB && _potDelta > 0) discardPriority -= _potDelta * 6;
+      // Phase 9: 规则3 撒灰——轻量喂胡另一旁家（非止损态）
+      if (_feedOtherB && !concedeMode.concede) discardPriority += _aiFeedScore(ch, _feedOtherB) * 12;
+      // Phase 9: 双向牌流——卡下家（默认；下家疑似需要的牌加重罚）
+      for (var _biD = 0; _biD < _bgDownB.length; _biD++) { if (_bgDownB[_biD].ch === ch) { discardPriority -= 8; break; } }
+      // Phase 9: 双向牌流——喂上家（上家无扎且不危险且自己不守时，喂其所需→增摸牌机会/圆牌/胡数）
+      if (_upSafeB && !_weakB) {
+        for (var _biU = 0; _biU < _bgUpB.length; _biU++) { if (_bgUpB[_biU].ch === ch) { discardPriority += 10; break; } }
+      }
+      // Phase 9: 规则4 窄听口早期换向——结构听但胡数潜力低且盘中早期→鼓励换牌向大胡发展
+      if (ting.canTingStruct && !ting.canTing && ting.maxHuStruct < 20 && _deckRatioB > 0.55) discardPriority += 25;
       // Phase 4: 安全牌奖励/冒险奖励
       discardPriority += defenseFactor.safeBonus * (danger < 0.2 ? 1 : 0);
       discardPriority += defenseFactor.riskyPenalty * (danger > 0.5 ? 1 : 0);

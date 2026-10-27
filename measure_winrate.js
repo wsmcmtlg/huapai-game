@@ -260,7 +260,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0;
+var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 function runOneGame(loader, levels, seed) {
@@ -303,6 +303,32 @@ function runOneGame(loader, levels, seed) {
       } else { ctx.__winner = 'draw'; ctx.G.gameOver = true; return; }
     }
     ctx.G.aiLevel = levels[0];
+    // Phase 9h: 庄家扎牌检测（含起手；决策走 _aiDecideZha 忍扎三问；字符串协议）
+    const _zd = vm.runInContext(`
+      (function(){
+        var cnts = {}; for (var i=0;i<handCards.length;i++){ var c=handCards[i].ch; cnts[c]=(cnts[c]||0)+1; }
+        var zc=null, wild=false;
+        for (var c in cnts) if (cnts[c]>=4 && c!=='赖') { zc=c; break; }
+        if (!zc) {
+          var w=cnts['赖']||0;
+          var jcs=['三','五','七'];
+          for (var ji=0; ji<jcs.length; ji++) { var n=cnts[jcs[ji]]||0; var need=4-n; if(n>=2&&need>=1&&need<=w){zc=jcs[ji];wild=true;break;} }
+        }
+        if (!zc) return null;
+        var go = _aiDecideZha(handCards.map(function(c){return c.ch;}), zc, 0, wild);
+        return { ch: zc, wild: wild, go: go };
+      })()
+    `, vmctx);
+    if (_zd && _zd.go) {
+      __zhaTotal++;
+      var _zhaExec = 'var __ch=' + JSON.stringify(_zd.ch) + '; var __wild=' + (_zd.wild?'true':'false') + ';'
+        + 'var removed=0; var cards=[];'
+        + 'for (var i=handCards.length-1;i>=0&&removed<4;i--){ var c=handCards[i]; if(c.ch===__ch||(__wild&&c.ch===\'赖\')){cards.push(c);handCards.splice(i,1);removed++;} }'
+        + 'G.dealerMelds.push({type:\'zha\',char:__ch,count:4,cards:cards,inHand:true,isWildZha:__wild});'
+        + 'if(G.deckCount>0){var ds=G.deck.shift();G.deckCount--;handCards.push(parseDeckCard(ds));}';
+      vm.runInContext(_zhaExec, vmctx);
+      ctx.G.drawnCard = null; // 摸底牌已入手，简化处理
+    }
     // 摸后自摸胡检测（含庄家明牌组 preMelds，转换逻辑与页面捉铳分支一致）
     const hu = vm.runInContext(`
       analyzeHand(handCards.slice(), (G.dealerMelds||[]).map(function(m){
@@ -379,6 +405,7 @@ function runOneGame(loader, levels, seed) {
   }
   if (guard >= MAX_STEPS) return { winner: 'stuck', hu: 0 };
   __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
+  ctx.__p9c = ctx.G._p9 || null; __p9cLast = ctx.G._p9 || null; // Phase9 分支执行计数
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -432,7 +459,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_L${level}_${games}`;
