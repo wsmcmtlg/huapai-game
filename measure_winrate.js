@@ -285,7 +285,7 @@ function runOneGame(loader, levels, seed) {
     G.deckCount = G.deck.length;
     G._passRecord = {}; G._skippedOps = {};
     G.dealerMelds = G.dealerMelds || [];   // 页面靠延迟初始化，测量环境需显式补齐
-    __lvCfg[0] = " + levels[0] + "; __lvCfg[1] = " + levels[1] + "; __lvCfg[2] = " + levels[2] + ";
+    __lvCfg[0] = ${levels[0]}; __lvCfg[1] = ${levels[1]}; __lvCfg[2] = ${levels[2]};
   `, vmctx);
 
   // 统计循环：驱动任务队列 + 庄家回合接管
@@ -405,7 +405,7 @@ function runOneGame(loader, levels, seed) {
   }
   if (guard >= MAX_STEPS) return { winner: 'stuck', hu: 0 };
   __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
-  ctx.__p9c = ctx.G._p9 || null; __p9cLast = ctx.G._p9 || null; // Phase9 分支执行计数
+  ctx.__p9c = Object.assign({}, ctx.G._p9c||null, ctx.G._p9z||null); __p9cLast = ctx.__p9c; // Phase9 真值计数
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -430,9 +430,15 @@ function main() {
   const games = +getArg('--games', 500);
   const seed = +getArg('--seed', 20261027);
   const levelNames = ['菜鸟', '高手', '大师', '老千'];
-  // 校准桌：目标级(位0庄) + 2 个高手陪练
-  const levels = [level, 1, 1];
-  console.log(`校准桌：位0=${levelNames[level]}(庄) vs 位1/位2=高手陪练 × ${games} 局`);
+  const table = getArg('--table', 'cal');
+  const humanLv = +getArg('--human-level', 1);
+  // 双桌口径（08号文档）：cal=校准桌（目标AI+2高手陪练）；exp=体验桌（人类代理+2×目标AI）
+  const levels = table === 'exp' ? [humanLv, level, level] : [level, 1, 1];
+  if (table === 'exp') {
+    console.log(`体验桌：位0=人类代理(L${humanLv})(庄) vs 位1/位2=${levelNames[level]} × ${games} 局（红线：人类胡牌率<40%）`);
+  } else {
+    console.log(`校准桌：位0=${levelNames[level]}(庄) vs 位1/位2=高手陪练 × ${games} 局`);
+  }
   const loader = loadGameCode();
   console.log('已提取依赖函数/声明:', loader.deps.length, '个');
   const wins = [0, 0, 0]; let draws = 0, stuck = 0; const huList = [];
@@ -462,7 +468,7 @@ function main() {
   lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
-  const base = `measure_report_L${level}_${games}`;
+  const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}`;
   fs.writeFileSync(path.join(__dirname, base + '.md'), report);
   fs.writeFileSync(path.join(__dirname, base + '.json'), JSON.stringify({ level, games, seed, wins, draws, stuck }, null, 2));
   console.log('已写入', base + '.md /', base + '.json');
