@@ -182,6 +182,26 @@ const INJECT_TAIL = `
 ;var __winner = null;   // 'win:idx:hu' | 'draw'
 function showSettlePanel(winnerIdx, result) { __winner = 'win:' + winnerIdx + ':' + (result && result.totalHu || 0); G.gameOver = true; }
 function endGame() { __winner = 'draw'; G.gameOver = true; }
+// ── analyzeHand 签名 memo（性能：听牌搜索中同手牌+明牌组合大量重复）──
+// ── 分级包装：按 playerIdx 设置该家 aiLevel（否则全局单值，陪练误用目标级大脑）──
+var __lvCfg = [3, 1, 1];
+var __odp = _aiDecidePen; _aiDecidePen = function(h, ch, pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __odp(h, ch, pi); };
+var __odz = _aiDecideZha; _aiDecideZha = function(h, ch, pi, w) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __odz(h, ch, pi, w); };
+var __ochi = _aiCheckOpponentChi; _aiCheckOpponentChi = function(pi, ch) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __ochi(pi, ch); };
+var __opd = aiPickDiscard; aiPickDiscard = function(h, pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __opd(h, pi); };
+var __oap = opponentAutoPlay; opponentAutoPlay = function(pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __oap(pi); };
+var __origAH = analyzeHand; var __ahCache = {};
+analyzeHand = function(cards, preMelds) {
+  var sig = '';
+  for (var i = 0; i < cards.length; i++) { var c = cards[i]; sig += c.ch + (c.isWild ? 'W' : (c.isJin ? (c.v === 'flower' ? 'F' : 'P') : '')); }
+  sig += '|';
+  if (preMelds) for (var j = 0; j < preMelds.length; j++) sig += preMelds[j].type + ':' + (preMelds[j].chars || []).join('') + ';';
+  var hit = __ahCache[sig];
+  if (hit !== undefined) return hit;
+  var r = __origAH(cards, preMelds);
+  __ahCache[sig] = r;
+  return r;
+};
 `;
 
 function loadGameCode() {
@@ -230,6 +250,7 @@ function runOneGame(loader, levels, seed) {
     G.deckCount = G.deck.length;
     G._passRecord = {}; G._skippedOps = {};
     G.dealerMelds = G.dealerMelds || [];   // 页面靠延迟初始化，测量环境需显式补齐
+    __lvCfg[0] = " + levels[0] + "; __lvCfg[1] = " + levels[1] + "; __lvCfg[2] = " + levels[2] + ";
   `, vmctx);
 
   // 统计循环：驱动任务队列 + 庄家回合接管

@@ -8909,6 +8909,54 @@ function _aiSmartDiscard(hand, playerIdx) {
 }
 
 // ── 老千级(L3)：完整记牌+深度听牌+攻防一体 ──
+/* ═══ Phase 8: 胡数引擎 ═══
+ * 花牌胡牌门槛 17 胡，而顺子成副几乎不计胡（红固定顺1胡、数字顺0胡）——
+ * 胡数必须靠精牌坎/扎/招/穿/泛（查表5~48胡）。本引擎评估一手牌的"可达胡数潜力"，
+ * 指导 AI 主动构造精牌牌型（双精朝坎走、有坎朝扎走、扎了朝穿走）。
+ * 手牌为字符串数组（无花皮信息），精牌查表期望用常数近似（校准阶段精化）。
+ */
+function _aiHuPotential(hand, preMelds) {
+  var cc = {};
+  for (var i = 0; i < hand.length; i++) {
+    var it = hand[i];
+    var ch = (typeof it === 'string') ? it : (it.ch || '');
+    cc[ch] = (cc[ch] || 0) + 1;
+  }
+  var pot = 0;
+  var wild = cc['赖'] || 0;
+  // 红精牌型潜力（查表期望常数，主精期望已含）
+  var redJ = ['三','五','七'];
+  for (var ri = 0; ri < redJ.length; ri++) {
+    var n = cc[redJ[ri]] || 0;
+    if (!n) continue;
+    if (n === 1) pot += 4;                       // 单精：进顺/坎的期望
+    else if (n === 2) pot += (wild >= 1 ? 14 : 8); // 双精：+赖=扎料(扎14~18)
+    else if (n === 3) pot += (wild >= 1 ? 24 : 15); // 坎：可扎(12~24)可穿(28+)
+    else pot += 30;                              // 4张：扎成，穿潜力大
+  }
+  // 黑精乙九：顺子字为主，牌型潜力低
+  var blkJ = ['乙','九'];
+  for (var bi = 0; bi < blkJ.length; bi++) {
+    var bn = cc[blkJ[bi]] || 0;
+    if (!bn) continue;
+    pot += (bn >= 3 ? 3 : (bn === 2 ? 2 : 1));   // 坎1~3胡
+  }
+  // 赖子：通配枢纽（若未计入上述组合）
+  if (wild > 0) {
+    var usedAsPair = false;
+    for (var rj2 = 0; rj2 < redJ.length; rj2++) { if ((cc[redJ[rj2]]||0) === 2) usedAsPair = true; }
+    if (!usedAsPair) pot += wild * 6;            // 赖子自由枢纽价值
+  }
+  // 结构胡数：红固定顺成副(1胡/副) + 精牌进顺逐张
+  var fixedRed = [['上','大','人'], ['可','知','礼']];
+  for (var fi = 0; fi < fixedRed.length; fi++) {
+    var fs2 = fixedRed[fi];
+    if ((cc[fs2[0]]||0) >= 1 && (cc[fs2[1]]||0) >= 1 && (cc[fs2[2]]||0) >= 1) pot += 1;
+  }
+  // 七十土含精七：三字齐=1胡+精七逐张(已计入精牌潜力，不重复)
+  return { potential: pot, wild: wild, cc: cc };
+}
+
 function _aiL3Cheat(hand, playerIdx) {
   // Phase 5: 性能预算控制
   _aiPerfStart(120); // 80ms预算
@@ -8999,10 +9047,18 @@ function _aiL3Cheat(hand, playerIdx) {
     for (var _bi = 0; _bi < bg.length; _bi++) behaviorGuesses.push(bg[_bi]);
   }
 
+  // Phase 8: 胡数引擎——当前手牌潜力（基准）
+  var _curPot = _aiHuPotential(hand, preMelds);
+
   const scored = [];
   for (const ch of filteredChars) {
     if (!tingMap[ch]) tingMap[ch] = {canTing:false, maxHu:0, tingCount:0};
     if (counts[ch] > 3 && !tingMap[ch].canTing) continue; // 4张不拆（除非能听牌）
+    // Phase 8: 打出该候选后的胡数潜力损失（精牌/赖子损失大 → 自动保留）
+    var _simH8 = hand.slice();
+    var _idx8 = _simH8.indexOf(ch);
+    if (_idx8 >= 0) _simH8.splice(_idx8, 1);
+    var _potDelta = _curPot.potential - _aiHuPotential(_simH8, preMelds).potential;
 
     const cnt = counts[ch];
     const ting = tingMap[ch];
@@ -9069,6 +9125,8 @@ function _aiL3Cheat(hand, playerIdx) {
     } else {
       // Phase 4: 非听牌时受攻防模式影响（止损+喂牌时听牌候选也走此分支：已放弃胡牌，喂牌优先）
       discardPriority = -retainValue + trackSafety - dangerPenalty * defenseFactor.dangerMultiplier + visibilityBonus;
+      // Phase 8: 胡数潜力损失惩罚（打出后潜力跌多少就罚多少×权重）
+      if (_potDelta > 0) discardPriority -= _potDelta * 8;
       // Phase 4: 安全牌奖励/冒险奖励
       discardPriority += defenseFactor.safeBonus * (danger < 0.2 ? 1 : 0);
       discardPriority += defenseFactor.riskyPenalty * (danger > 0.5 ? 1 : 0);
