@@ -6080,7 +6080,12 @@ function analyzeHand(cards, preMelds) {
   return _analyzeHandInner(cards, preMelds, true);
 }
 
-function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
+// Phase 8.1: 无17胡门槛的结构分析——全拆+眼即返回（isWin 反映是否≥17胡）；同样计算量、多返回结构信息
+function analyzeHandLoose(cards, preMelds) {
+  return _analyzeHandInner(cards, preMelds, true, 0);
+}
+
+function _analyzeHandInner(cards, preMelds, allowChuanWildSwap, minHu) {
   if (!cards || cards.length < 2) return null;
   if (!preMelds) preMelds = [];
   const totalAll = cards.length + preMelds.reduce((s,m) => s + m.cards.length, 0);
@@ -6142,7 +6147,7 @@ function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
           var newPreMelds = preMelds.slice();
           newPreMelds[targetIdx] = Object.assign({}, targetMeld, {cards: newMeldCards, chars: newMeldChars});
           var newCards = cards.filter(function(c) { return !c.isWild; }).concat(releasedCards);
-          var result = _analyzeHandInner(newCards, newPreMelds, false);
+          var result = _analyzeHandInner(newCards, newPreMelds, false, minHu);
           if (result && (!best || result.totalHu > best.totalHu)) best = result;
         }
       }
@@ -6226,7 +6231,7 @@ function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
         var newMeldChars2 = newMeldCards2.map(function(c) { return c.ch; });
         var newPreMelds2 = preMelds.slice();
         newPreMelds2[targetIdx2] = Object.assign({}, targetMeld2, {cards: newMeldCards2, chars: newMeldChars2});
-        var result2 = _analyzeHandInner(newCards2, newPreMelds2, false);
+        var result2 = _analyzeHandInner(newCards2, newPreMelds2, false, minHu);
         if (result2 && (!best || result2.totalHu > best.totalHu)) best = result2;
       }
     }
@@ -6235,13 +6240,13 @@ function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
   }
 
   // ═══ 核心分析（含原始preMelds） ═══
-  const innerResult = _analyzeHandCore(cards, preMelds);
+  const innerResult = _analyzeHandCore(cards, preMelds, minHu);
   if (innerResult && (!best || innerResult.totalHu > best.totalHu)) best = innerResult;
   return best;
 }
 
 
-function _analyzeHandCore(cards, preMelds) {
+function _analyzeHandCore(cards, preMelds, minHu) {
   if (!cards || cards.length < 2) return null;
   if (!preMelds) preMelds = [];
   const totalAll = cards.length + preMelds.reduce((s,m) => s + m.cards.length, 0);
@@ -6261,9 +6266,10 @@ function _analyzeHandCore(cards, preMelds) {
     const mjs = [null, ...aj];
     for (const mj of mjs) {
       const {total} = _calcTotalHu(am, mj);
-      if (total >= MIN_HU && (!best || total > best.totalHu)) {
+      var _minHu = (minHu !== undefined) ? minHu : MIN_HU;
+      if (total >= _minHu && (!best || total > best.totalHu)) {
         best = {
-          isWin:true, totalHu:total, melds:am, mainJin:mj,
+          isWin: total >= MIN_HU, totalHu:total, melds:am, mainJin:mj,
           eyeType:melds[0].type, eyeChars:melds[0].cards.map(c=>c.ch)
         };
       }
@@ -7830,17 +7836,22 @@ function _buildPreMelds(playerIdx) {
 function _aiCalcTingInfo(simHand, preMelds) {
   var simCards = simHand.map(function(c){return makeCardData(c);});
   var canTing = false, maxHu = 0, tingCount = 0, tingChars = [];
+  var structCount = 0, maxHuStruct = 0;
   for (var ti = 0; ti < ALL_22_CHARS.length; ti++) {
     var tch = ALL_22_CHARS[ti];
     var testCards = simCards.slice();
     testCards.push(makeCardData(tch));
-    var result = analyzeHand(testCards, preMelds);
+    var result = analyzeHandLoose(testCards, preMelds);   // Phase 8.1: loose版同时给出结构听牌信息
     if (result && result.isWin) {
       canTing = true; tingCount++; tingChars.push(tch);
       if (result.totalHu > maxHu) maxHu = result.totalHu;
     }
+    if (result && result.melds && result.melds.length) {
+      structCount++;
+      if (result.totalHu > maxHuStruct) maxHuStruct = result.totalHu;
+    }
   }
-  return {canTing: canTing, maxHu: maxHu, tingCount: tingCount, tingChars: tingChars};
+  return {canTing: canTing, maxHu: maxHu, tingCount: tingCount, tingChars: tingChars, canTingStruct: structCount > 0, maxHuStruct: maxHuStruct};
 }
 
 // AI碰牌总决策（供opponentAutoPlay和checkOpponentResponse调用）
@@ -9127,6 +9138,9 @@ function _aiL3Cheat(hand, playerIdx) {
       discardPriority = -retainValue + trackSafety - dangerPenalty * defenseFactor.dangerMultiplier + visibilityBonus;
       // Phase 8: 胡数潜力损失惩罚（打出后潜力跌多少就罚多少×权重）
       if (_potDelta > 0) discardPriority -= _potDelta * 8;
+      // Phase 8.1: 结构听牌感知（全拆+眼但胡数未够17——往精牌牌型方向收敛）
+      if (!ting.canTingStruct) discardPriority -= 500;   // 打出后结构不全拆→保留
+      else discardPriority += 100;                        // 打出后仍结构听→鼓励换牌向胡数发展
       // Phase 4: 安全牌奖励/冒险奖励
       discardPriority += defenseFactor.safeBonus * (danger < 0.2 ? 1 : 0);
       discardPriority += defenseFactor.riskyPenalty * (danger > 0.5 ? 1 : 0);

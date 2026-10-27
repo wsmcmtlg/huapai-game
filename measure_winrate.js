@@ -170,6 +170,7 @@ const ROOT_FNS = [
   // harness 直接驱动的响应链与庄家流程
   'checkResponseAfterOpponent', 'opponentAutoPlay', 'checkOpponentResponse',
   'dealerZha', 'dealerCheckChuan', 'checkDealerSelfHu', 'checkDealerZhaAndHu',
+  'dealerPen', 'dealerZhao',   // 庄家响应接管（harness 空队列时调用）
   'analyzeHand',
 ];
 // 这些声明永远 stub / 特化（不提取真实实现）
@@ -190,18 +191,51 @@ var __odz = _aiDecideZha; _aiDecideZha = function(h, ch, pi, w) { if (__lvCfg[pi
 var __ochi = _aiCheckOpponentChi; _aiCheckOpponentChi = function(pi, ch) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __ochi(pi, ch); };
 var __opd = aiPickDiscard; aiPickDiscard = function(h, pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __opd(h, pi); };
 var __oap = opponentAutoPlay; opponentAutoPlay = function(pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __oap(pi); };
-var __origAH = analyzeHand; var __ahCache = {};
-analyzeHand = function(cards, preMelds) {
-  var sig = '';
-  for (var i = 0; i < cards.length; i++) { var c = cards[i]; sig += c.ch + (c.isWild ? 'W' : (c.isJin ? (c.v === 'flower' ? 'F' : 'P') : '')); }
-  sig += '|';
-  if (preMelds) for (var j = 0; j < preMelds.length; j++) sig += preMelds[j].type + ':' + (preMelds[j].chars || []).join('') + ';';
-  var hit = __ahCache[sig];
-  if (hit !== undefined) return hit;
-  var r = __origAH(cards, preMelds);
-  __ahCache[sig] = r;
+// ── 旁家捉铳直接成交：opponentHu 链在 DOM stub 下不可靠，检测到 isWin 立即记胜 ──
+var __ohu0 = checkOpponentHu;
+checkOpponentHu = function(pi) {
+  var r = __ohu0(pi);
+  if (r && r.isWin && !G.gameOver) { __winner = 'win:' + pi + ':' + (r.totalHu || 0); G.gameOver = true; }
   return r;
 };
+function __makeAHCached(orig, cache) {
+  return function(cards, preMelds) {
+    var sig = '';
+    for (var i = 0; i < cards.length; i++) { var c = cards[i]; sig += c.ch + (c.isWild ? 'W' : (c.isJin ? (c.v === 'flower' ? 'F' : 'P') : '')); }
+    sig += '|';
+    if (preMelds) for (var j = 0; j < preMelds.length; j++) sig += preMelds[j].type + ':' + (preMelds[j].chars || []).join('') + ';';
+    var hit = cache[sig];
+    if (hit !== undefined) return hit;
+    var r = orig(cards, preMelds);
+    cache[sig] = r;
+    return r;
+  };
+}
+
+// ── 修复：顶层裸语句构建的查找表（提取器只抓 var/function，漏掉了这两个）──
+if (!Object.keys(SEQ_BY_CHAR).length) {
+  for (var __si = 0; __si < ALL_SEQS.length; __si++) {
+    var __sq = ALL_SEQS[__si];
+    for (var __ci = 0; __ci < __sq.length; __ci++) {
+      var __sc = __sq[__ci];
+      if (!SEQ_BY_CHAR[__sc]) SEQ_BY_CHAR[__sc] = [];
+      SEQ_BY_CHAR[__sc].push(__sq);
+    }
+  }
+}
+if (!ALL_KOU_LIST.length) {
+  var __kouSeen = new Set();
+  for (var __si2 = 0; __si2 < ALL_SEQS.length; __si2++) {
+    var __sq2 = ALL_SEQS[__si2];
+    for (var __a = 0; __a < 3; __a++) for (var __b = __a + 1; __b < 3; __b++) {
+      var __sorted = [__sq2[__a], __sq2[__b]].sort().join(',');
+      if (!__kouSeen.has(__sorted)) { __kouSeen.add(__sorted); ALL_KOU_LIST.push([__sq2[__a], __sq2[__b]]); }
+    }
+  }
+}
+var __ahCacheA = {}, __ahCacheL = {};
+analyzeHand = __makeAHCached(analyzeHand, __ahCacheA);
+analyzeHandLoose = __makeAHCached(analyzeHandLoose, __ahCacheL);
 `;
 
 function loadGameCode() {
@@ -226,6 +260,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
+var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 function runOneGame(loader, levels, seed) {
@@ -245,7 +280,7 @@ function runOneGame(loader, levels, seed) {
     G.deckCount = G.deck.length;
     handCards = []; opponentHands[1] = []; opponentHands[2] = [];
     opponentMelds[1] = []; opponentMelds[2] = [];
-    for (let i = 0; i < 26; i++) { var s = G.deck.pop(); handCards.push(s.indexOf(':')>=0 ? s.substring(0,s.indexOf(':')) : s); }
+    for (let i = 0; i < 26; i++) handCards.push(parseDeckCard(G.deck.pop()));   // 页面同构：卡牌对象（含花/皮）
     for (let p = 1; p <= 2; p++) for (let i = 0; i < 25; i++) { var s2 = G.deck.pop(); opponentHands[p].push(s2.indexOf(':')>=0 ? s2.substring(0,s2.indexOf(':')) : s2); }
     G.deckCount = G.deck.length;
     G._passRecord = {}; G._skippedOps = {};
@@ -261,20 +296,32 @@ function runOneGame(loader, levels, seed) {
     // 庄家摸牌（首回合起手 26 张不摸）
     if (!first) {
       if (ctx.G.deckCount > 0) {
-        const s = ctx.G.deck.pop(); ctx.handCards.push(s.indexOf(':') >= 0 ? s.substring(0, s.indexOf(':')) : s);
+        const cd = vm.runInContext('parseDeckCard(G.deck.pop())', vmctx);
+        ctx.handCards.push(cd);
         ctx.G.deckCount--;
+        ctx.G.drawnCard = cd; // 庄家捉铳分支依赖（页面同构）
       } else { ctx.__winner = 'draw'; ctx.G.gameOver = true; return; }
     }
     ctx.G.aiLevel = levels[0];
-    // 摸后自摸胡检测（庄家手牌在 handCards，不在 opponentHands，直接用 analyzeHand）
-    const hu = vm.runInContext('analyzeHand(handCards.map(c => makeCardData(c)))', vmctx);
+    // 摸后自摸胡检测（含庄家明牌组 preMelds，转换逻辑与页面捉铳分支一致）
+    const hu = vm.runInContext(`
+      analyzeHand(handCards.slice(), (G.dealerMelds||[]).map(function(m){
+        if (m.inHand) {
+          var cards = m.cards || Array.from({length:4}, function(){ return makeCardData(m.char); });
+          return {type:'zha', chars:cards.map(function(c){return c.ch;}), cards:cards.slice(0,4)};
+        }
+        var cards2 = m.cards || Array.from({length:m.count}, function(){ return makeCardData(m.char); });
+        return {type: m.type || 'pen', chars: Array(m.count).fill(m.char), cards: cards2};
+      }))
+    `, vmctx);
     if (hu && hu.isWin) { ctx.__winner = 'win:0:' + (hu.totalHu || 0); ctx.G.gameOver = true; return; }
-    // 出牌（TODO 迭代：庄家扎检测/穿/泛、忍扎决策）
-    const idx = vm.runInContext('aiPickDiscard(handCards, 0)', vmctx);
+    // 出牌（页面 AI 层是字符串协议：hand 元素直接当字用，必须传 ch 字符串序列）
+    const idx = vm.runInContext('aiPickDiscard(handCards.map(function(c){return c.ch;}), 0)', vmctx);
     if (typeof idx !== 'number' || idx < 0 || idx >= ctx.handCards.length) { ctx.__winner = 'draw'; ctx.G.gameOver = true; return; }
     const played = ctx.handCards.splice(idx, 1)[0];
     ctx.G.lastPlayedChar = played;
     ctx.G.lastPlayedFrom = 0;
+    ctx.G.drawnCard = null;
     taskQueue.push(() => { try { vm.runInContext('checkResponseAfterOpponent(0)', vmctx); } catch (e) { ctx.__winner = 'draw'; ctx.G.gameOver = true; } });
   };
   // 首回合入队
@@ -290,11 +337,48 @@ function runOneGame(loader, levels, seed) {
         if (/querySelector|innerHTML|classList|style|appendChild|textContent/.test(msg)) continue;
         ctx.__err = msg; ctx.G.gameOver = true;
       }
+      // 庄家捉铳接管：页面流程等 UI 点击，测量环境直接成交
+      if (ctx.G._pendingWin) {
+        ctx.__winner = 'win:0:' + (ctx.G._pendingWin.totalHu || 0); ctx.G.gameOver = true; ctx.G._pendingWin = null; ctx.__pwFired = (ctx.__pwFired||0)+1;
+      }
     }
-    else { runDealerTurn(); }
+    else {
+      // 空队列 = 页面在等“人类”响应：庄家捉铳已由 _pendingWin 轮询接管；此处接管碰/招
+      if (ctx.G._pendingWin) {
+        ctx.__winner = 'win:0:' + (ctx.G._pendingWin.totalHu || 0); ctx.G.gameOver = true; ctx.G._pendingWin = null; ctx.__pwFired = (ctx.__pwFired||0)+1;
+      } else if (ctx.G.lastPlayedChar && ctx.G.lastPlayedFrom !== 0) {
+        ctx.__claimChk = (ctx.__claimChk || 0) + 1;
+        const claim = vm.runInContext(`
+          (function(){
+            var ch = G.lastPlayedChar; if (!ch) return null;
+            var cnt = 0; for (var i=0;i<handCards.length;i++) if (handCards[i].ch===ch) cnt++;
+            if (G.drawnCard && G.drawnCard.ch===ch) cnt++;
+            var penCnt = 0; for (var j=0;j<G.dealerMelds.length;j++) if (G.dealerMelds[j].type==='pen') penCnt++;
+            if (cnt>=3 && !G._skippedOps['zhao_'+ch]) return 'zhao';
+            if (cnt>=2 && penCnt<2 && !G._skippedOps['pen_'+ch]) return 'pen';
+            return null;
+          })()
+        `, vmctx);
+        if (claim) {
+          ctx.__claims = (ctx.__claims || 0) + 1;
+          try { vm.runInContext(claim === 'zhao' ? 'dealerZhao()' : 'dealerPen()', vmctx); }
+          catch (e) { const mm = e.message || ''; if (!/querySelector|innerHTML|classList|style|appendChild|textContent|removeChild|parentNode/.test(mm)) { ctx.__err = 'claim:' + mm; ctx.G.gameOver = true; } }
+          if (!ctx.G.gameOver) {
+            const idx2 = vm.runInContext('aiPickDiscard(handCards.map(function(c){return c.ch;}), 0)', vmctx);
+            if (typeof idx2 === 'number' && idx2 >= 0 && idx2 < ctx.handCards.length) {
+              const played2 = ctx.handCards.splice(idx2, 1)[0];
+              ctx.G.lastPlayedChar = played2.ch !== undefined ? played2.ch : played2;
+              ctx.G.lastPlayedFrom = 0; ctx.G.drawnCard = null;
+              taskQueue.push(() => { try { vm.runInContext('checkResponseAfterOpponent(0)', vmctx); } catch (e) { const mm = e.message || ''; if (!/querySelector|innerHTML|classList|style|appendChild|textContent/.test(mm)) { ctx.__err = mm; ctx.G.gameOver = true; } } });
+            } else { ctx.__winner = 'draw'; ctx.G.gameOver = true; }
+          }
+        } else runDealerTurn();
+      } else runDealerTurn();
+    }
     // G.gameOver 由 showSettlePanel/endGame stub 设置
   }
   if (guard >= MAX_STEPS) return { winner: 'stuck', hu: 0 };
+  __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -325,6 +409,7 @@ function main() {
   const loader = loadGameCode();
   console.log('已提取依赖函数/声明:', loader.deps.length, '个');
   const wins = [0, 0, 0]; let draws = 0, stuck = 0; const huList = [];
+
   for (let g = 0; g < games; g++) {
     process.stdout.write(`\r局 ${g + 1}/${games}`);
     let r;
@@ -347,6 +432,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_L${level}_${games}`;
