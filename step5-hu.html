@@ -7655,12 +7655,13 @@ function aiPickDiscard(hand, playerIdx) {
   if (hand.length === 0) return -1;
   if (hand.length === 1) return 0;
   // Phase 11: 人味ε扰动（09号§3.4/§4 减法链条）——低级AI偶尔"不按理出牌"
-  var _epsLv = { 0: 0.775, 1: 0.15, 2: 0.075, 3: 0.015 }[G.aiLevel];
+  var _epsLv = { 0: 0.25, 1: 0.15, 2: 0.075, 3: 0.015 }[G.aiLevel];
   if (_epsLv !== undefined && Math.random() < _epsLv) return Math.floor(Math.random() * hand.length);
   const lv = G.aiLevel;
   // 菜鸟: 纯随机（偶尔带基础策略）
   if (lv === 0) {
-    if (Math.random() < 0.7) return Math.floor(Math.random() * hand.length);
+    // Phase12: 菜鸟双层随机~93%过狠(0胜/89%荒庄)，降到~45%留高光
+    if (Math.random() < 0.3) return Math.floor(Math.random() * hand.length);
     return _aiBasicDiscard(hand);
   }
   // 高手: 基础启发式，保留赖子/精牌，拆孤立牌
@@ -7873,13 +7874,14 @@ function _aiDecidePen(hand, ch, playerIdx) {
     // Phase 7.7: 碰后无安全牌可打（放铳风险高）→ 直接否决
     if (result.reject) return false;
     // Phase 4: 阶段感知调整碰牌阈值
-    var baseThreshold = (lv === 1) ? -5 : (lv === 2) ? 0 : 3;
+    // Phase12 荒庄压降：放宽碰牌门槛，防守加值 3→2
+    var baseThreshold = (lv === 1) ? -9 : (lv === 2) ? -5 : -2;
     if (lv >= 2) {
       var phaseFactor = _aiGetPhaseFactor(playerIdx);
       var strategyMode = _aiGetStrategyMode(playerIdx);
       baseThreshold += phaseFactor.penThreshold;
       // 防守模式下碰牌更谨慎（除非碰牌明确有利）
-      if (strategyMode.mode === 'defend') baseThreshold += 3;
+      if (strategyMode.mode === 'defend') baseThreshold += 2;
     }
     return result.benefit >= baseThreshold;
   }
@@ -8589,11 +8591,31 @@ function _aiCheckOpponentChi(playerIdx, ch) {
   var hand = opponentHands[playerIdx];
   if (!hand || hand.length === 0) return null;
   
+  // Phase12 荒庄压降: 进取性吃——吃后形成听牌结构即吃(限3次), AI不再只会吃了即胡
+  var _curPot = 0;
+  try { _curPot = _aiHuPotential(hand, preMelds).potential || 0; } catch(e) { _curPot = 0; }
+  function _aggrChiOk(sh, sm) {
+    G._aggrChk = (G._aggrChk||0)+1;
+    var pc = 0;
+    for (var i2 = 0; i2 < sm.length; i2++) { var t2 = sm[i2].type; if (t2==='seq'||t2==='kou'||t2==='pair') pc++; }
+    if (pc >= 3) return false;
+    // 判定：吃后潜力提升 >=3（更接近成牌），或吃后即具备结构听
+    var _r2 = false;
+    try {
+      var _pot2 = _aiHuPotential(sh, sm).potential || 0;
+      if (_pot2 >= _curPot + 3) _r2 = true;
+      else { var _tg = _aiCalcTingInfoCached(sh, sm); _r2 = (_tg.canTingStruct === true || _tg.canTing === true); }
+    } catch(e) { G._aggrErr = (G._aggrErr||0)+1; _r2 = false; }
+    if (_r2) G._aggrHit = (G._aggrHit||0)+1;
+    return _r2;
+  }
+  
   // ═══ 前置检查: 旁家必须处于听牌状态(两听/摞听)才能吃牌 ═══
   var preMelds = _buildPreMelds(playerIdx);
   var simCards = hand.map(function(c){return makeCardData(c);});
   var handResult = analyzeHand(simCards, preMelds);
-  if (!handResult || !handResult.isWin) return null;
+  // Phase12: 前置不再要求手牌已是胡结构——进取性吃(吃后成听牌结构)对普通手牌开放
+  var _handIsWin = !!(handResult && handResult.isWin);
   
   // 计算手中各字面数量
   var counts = {};
@@ -8638,6 +8660,9 @@ function _aiCheckOpponentChi(playerIdx, ch) {
     if (result && result.isWin && result.totalHu >= MIN_HU) {
       return { tingType:'两听', chiType:'顺', chars:[seq[0],seq[1],seq[2]], meldInfo:{type:'seq', chars:[seq[0],seq[1],seq[2]]} };
     }
+    if (_aggrChiOk(simHand, simMelds)) {
+      return { tingType:'进取', chiType:'顺', chars:[seq[0],seq[1],seq[2]], meldInfo:{type:'seq', chars:[seq[0],seq[1],seq[2]]} };
+    }
   }
   
   // ═══ 摞听吃牌：吃后形成半顺子(口)或对子(对)作为第2眼 ═══
@@ -8651,6 +8676,9 @@ function _aiCheckOpponentChi(playerIdx, ch) {
     var result = analyzeHand(simCards, simMelds);
     if (result && result.isWin && result.totalHu >= MIN_HU) {
       return { tingType:'摞听', chiType:'对', chars:[ch,ch], meldInfo:{type:'pair', chars:[ch,ch]} };
+    }
+    if (_aggrChiOk(simHand, simMelds)) {
+      return { tingType:'进取', chiType:'对', chars:[ch,ch], meldInfo:{type:'pair', chars:[ch,ch]} };
     }
   }
   
@@ -8668,6 +8696,9 @@ function _aiCheckOpponentChi(playerIdx, ch) {
       var result = analyzeHand(simCards, simMelds);
       if (result && result.isWin && result.totalHu >= MIN_HU) {
         return { tingType:'摞听', chiType:'口', chars:[ch, otherCh], meldInfo:{type:'kou', chars:[ch, otherCh]} };
+      if (_aggrChiOk(simHand, simMelds)) {
+        return { tingType:'进取', chiType:'口', chars:[ch, otherCh], meldInfo:{type:'kou', chars:[ch, otherCh]} };
+      }
       }
     }
     if (kouChars[1] === ch && (counts[kouChars[0]] || 0) >= 1) {
@@ -8680,6 +8711,9 @@ function _aiCheckOpponentChi(playerIdx, ch) {
       var result = analyzeHand(simCards, simMelds);
       if (result && result.isWin && result.totalHu >= MIN_HU) {
         return { tingType:'摞听', chiType:'口', chars:[otherCh, ch], meldInfo:{type:'kou', chars:[otherCh, ch]} };
+      if (_aggrChiOk(simHand, simMelds)) {
+        return { tingType:'进取', chiType:'口', chars:[otherCh, ch], meldInfo:{type:'kou', chars:[otherCh, ch]} };
+      }
       }
     }
   }

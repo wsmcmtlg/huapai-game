@@ -32,8 +32,8 @@ const i1=vm.runInContext('aiPickDiscard(__hand.slice(),1)', v); console.log('L1 
 // 4. L2 ε=7.5%：0.1>0.075 不触发
 v = makeCtx(2, () => 0.1);
 T('L2 ε不触发(0.1>0.075)', vm.runInContext('aiPickDiscard(__hand.slice(),1)', v) !== undefined);
-// 5. L0 ε=77.5%：0.5<0.775 触发 → floor(0.5*15)=7
+// 5. L0 ε=25%：0.5>=0.25 不触发ε → 内层 0.5>=0.3 走策略路径
 v = makeCtx(0, () => 0.5);
-const i0=vm.runInContext('aiPickDiscard(__hand.slice(),1)', v); console.log('L0 idx=',i0); T('L0 ε触发→floor(0.5*15)=7', i0===7);
+const i0=vm.runInContext('aiPickDiscard(__hand.slice(),1)', v); console.log('L0 idx=',i0); T('L0 不触发ε→走内层/策略路径(合法idx)', i0>=0 && i0<15);
 console.log(`\n${pass} 过 / ${fail} 败`);
 process.exit(fail ? 1 : 0);

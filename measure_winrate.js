@@ -260,7 +260,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0;
+var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 function runOneGame(loader, levels, seed) {
@@ -404,6 +404,7 @@ function runOneGame(loader, levels, seed) {
     // G.gameOver 由 showSettlePanel/endGame stub 设置
   }
   if (guard >= MAX_STEPS) return { winner: 'stuck', hu: 0 };
+  __aggrChk = (ctx.G && ctx.G._aggrChk)||0; __aggrHit = (ctx.G && ctx.G._aggrHit)||0; __aggrErr = (ctx.G && ctx.G._aggrErr)||0;
   __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
   ctx.__p9c = Object.assign({}, ctx.G._p9c||null, ctx.G._p9z||null); __p9cLast = ctx.__p9c; // Phase9 真值计数
   const w = ctx.__winner || 'draw';
@@ -465,7 +466,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}`;
