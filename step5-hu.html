@@ -3133,6 +3133,7 @@ function playCard(el) {
 
 
 SoundManager.play('discard'); SoundManager.play('v_play_' + char);addLog(NAMES[0], '出', char);
+  _profRecord(0, 'discard', char);
   // trackCardUsed已移除(出牌不消耗余牌)
   setPhase('等待响应');
 }
@@ -3668,6 +3669,7 @@ function dealerPen() {
   if (!G.dealerMelds) G.dealerMelds = [];
   SoundManager.play('pen'); SoundManager.play('v_pen');
     G.dealerMelds.push({ type: 'pen', char: ch, count: 3, cards: penCards });
+  _profRecord(0, 'pen', ch);
   addLog(NAMES[0], '碰', ch);
 
   setPhase('庄家出牌');
@@ -4401,6 +4403,7 @@ function dealerZha(ch) {
   G.dealerMelds.push({ type: 'zha', char: ch, count: 4, cards: zhaCards, inHand: true, isWildZha: !!isWildZha });
   
   SoundManager.play('zha'); SoundManager.play('v_zha');addLog(NAMES[0], '扎', ch + (isWildZha ? '(赖)' : ''));
+  _profRecord(0, 'zha', ch);
   // ★ 渲染锁牌区 + 重排手牌
   renderLockArea();
   rearrangeHand();
@@ -5277,6 +5280,7 @@ function updateDeckVisual() {
 
 /* ═══ 流局 ═══ */
 function endGame() {
+  try { _profGameDone(); } catch(e) {}   // Phase 10: 跨局局数累计
   G.gameOver = true;
   lockHand();
   setPhase('流局');
@@ -6856,6 +6860,7 @@ function showRulesPopup() {
     .catch(function() { _showPopup('游戏规则与说明', fallbackBody); });
 }
 function showSettlePanel(winnerIdx, winResult, winType) {
+  try { _profGameDone(); } catch(e) {}   // Phase 10: 跨局局数累计
   const container = document.getElementById('settle-container');
   const name = NAMES[winnerIdx];
   const points = calcPoints(winResult.totalHu);
@@ -8984,6 +8989,23 @@ function _aiHuPotential(hand, preMelds) {
 }
 
 function _aiL3Cheat(hand, playerIdx) {
+// ═══ Phase 10: 跨局玩家建模（老千专属，localStorage，只统计桌面可见行为）═══
+function _profLoad() {
+  try { var raw = localStorage.getItem('hp_profile_v1'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+function _profSave(p) { try { localStorage.setItem('hp_profile_v1', JSON.stringify(p)); } catch (e) {} }
+function _profRecord(pi, kind, ch) {
+  if (pi !== 0 || !ch) return;   // 只记录人类（位0）的桌面行为
+  var p = _profLoad(); if (!p || typeof p !== 'object') p = { games: 0, pen: {}, zha: {}, disc: {} };
+  if (kind === 'pen') p.pen[ch] = (p.pen[ch] || 0) + 1;
+  else if (kind === 'zha') p.zha[ch] = (p.zha[ch] || 0) + 1;
+  else if (kind === 'discard') p.disc[ch] = (p.disc[ch] || 0) + 1;
+  _profSave(p);
+}
+function _profGameDone() {
+  var p = _profLoad(); if (!p || typeof p !== 'object') p = { games: 0, pen: {}, zha: {}, disc: {} };
+  p.games = (p.games || 0) + 1; _profSave(p);
+}
   // Phase 5: 性能预算控制
   _aiPerfStart(120); // 80ms预算
   _aiClearTingCache(); // 每次决策前清缓存
@@ -9089,6 +9111,9 @@ function _aiL3Cheat(hand, playerIdx) {
   var _bgDownB = _downB >= 1 ? _aiBehaviorBasedTingGuess(_downB) : [];
   var _bgUpB = _upB >= 1 ? _aiBehaviorBasedTingGuess(_upB) : [];
   var _upSafeB = _upB >= 1 && G._oppBehavior[_upB].zhaCount === 0 && _aiEstimateOpponentHu(_upB) < 20; // 上家无扎且不危险
+  // Phase 10: 跨局档案（人类习惯，localStorage）
+  var _prof9 = _profLoad() || { games: 0, pen: {}, zha: {}, disc: {} };
+  var _profOk9 = (_prof9.games || 0) >= 3;   // 档案不足3局不启用（样本纪律）
 
   const scored = [];
   for (const ch of filteredChars) {
@@ -9143,6 +9168,12 @@ function _aiL3Cheat(hand, playerIdx) {
     // Phase 9: 规则2 守势(牌差<12胡)危险惩罚加重；规则3 旁家扎≥2次重点防守
     if (_weakB) dangerPenalty *= 1.4;
     if (_heavyB) dangerPenalty *= 1.25;
+    // Phase 10: 档案习惯——人类爱碰/扎的字（其需求方向）加危险；常打的字略安全
+    if (_profOk9) {
+      var _pv9 = (_prof9.zha[ch] || 0) + (_prof9.pen[ch] || 0);
+      if (_pv9 > 0) dangerPenalty += Math.min(10, _pv9 * 2);
+      if ((_prof9.disc[ch] || 0) > 3) dangerPenalty *= 0.9;
+    }
 
     // 可见度加成：旁家已经有很多该字符的可见牌→打出去相对安全
     let visibilityBonus = Math.min(5, exposure * 0.5);
