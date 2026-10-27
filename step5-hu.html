@@ -6210,7 +6210,7 @@ function _analyzeHandInner(cards, preMelds, allowChuanWildSwap) {
           var cc2 = targetMeld2.cards[ciA];
           if (cc2.isWild) { newMeldCards2.push(cc2); continue; }
           if (meldSelSet2.has(ciA)) { newMeldCards2.push(cc2); }
-          else { newMeldCards2.push(handSel2[hi2++]); }
+          else { var hs2 = handSel2[hi2++]; if (hs2) newMeldCards2.push(hs2); }  // 修复(2026-10-27): handSel2耗尽时push(undefined)导致_analyzeHandInner炸.ch、AI静默降级
         }
         // 手牌：移除被选入 meld 的手牌，加入 meld 中释放的X物理牌
         var handUsed2 = new Set();
@@ -7763,7 +7763,8 @@ function _aiZhaBenefit(hand, ch, playerIdx, isWildZha) {
   }
   if (isWildZha) {
     var wRem = 0;
-    for (var i = simHand.length - 1; i >= 0 && wRem < 1; i++) {
+    // 修复(2026-10-27): 原为 i++ 递增越界死循环（赖子精扎时页面冻死），改为逆向递减
+    for (var i = simHand.length - 1; i >= 0 && wRem < 1; i--) {
       if (simHand[i] === '赖') { simHand.splice(i, 1); wRem++; }
     }
   }
