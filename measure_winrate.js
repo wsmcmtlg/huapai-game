@@ -263,7 +263,12 @@ function loadGameCode() {
 var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
-function runOneGame(loader, levels, seed) {
+// opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
+//   opts.onRest(vmctx, tag, ctx) —— 在每个"静息态"（庄家回合开始前 / 终局）回调，
+//   供 analyze_draw_cause.js 采样听牌状态；异常一律吞掉，绝不影响对局推进。
+function runOneGame(loader, levels, seed, opts) {
+  const onRest = (opts && typeof opts.onRest === 'function') ? opts.onRest : null;
+  const rest = (tag) => { if (onRest) { try { onRest(vmctx, tag, ctx); } catch (e) { /* 诊断失败不干扰主流程 */ } } };
   const { ctx, vmctx, taskQueue } = buildSandbox(seed);
   vm.runInContext('function __domStub(){ return __makeStub(); }', vmctx);
   // 逐条装载，隔离失败项
@@ -293,6 +298,7 @@ function runOneGame(loader, levels, seed) {
   let guard = 0;
   const MAX_STEPS = 20000;
   const runDealerTurn = (first) => {
+    rest(first ? 'deal' : 'turn'); // 诊断采样点：静息态（上回合出牌后 / 起手）
     // 庄家摸牌（首回合起手 26 张不摸）
     if (!first) {
       if (ctx.G.deckCount > 0) {
@@ -396,6 +402,7 @@ function runOneGame(loader, levels, seed) {
               ctx.G.lastPlayedChar = played2.ch !== undefined ? played2.ch : played2;
               ctx.G.lastPlayedFrom = 0; ctx.G.drawnCard = null;
               taskQueue.push(() => { try { vm.runInContext('checkResponseAfterOpponent(0)', vmctx); } catch (e) { const mm = e.message || ''; if (!/querySelector|innerHTML|classList|style|appendChild|textContent/.test(mm)) { ctx.__err = mm; ctx.G.gameOver = true; } } });
+              rest('claim'); // 诊断采样点：庄家碰/招后出牌的即时静息态
             } else { ctx.__winner = 'draw'; ctx.G.gameOver = true; }
           }
         } else runDealerTurn();
@@ -403,6 +410,7 @@ function runOneGame(loader, levels, seed) {
     }
     // G.gameOver 由 showSettlePanel/endGame stub 设置
   }
+  rest('final'); // 诊断采样点：终局静息态
   if (guard >= MAX_STEPS) return { winner: 'stuck', hu: 0 };
   __aggrChk = (ctx.G && ctx.G._aggrChk)||0; __aggrHit = (ctx.G && ctx.G._aggrHit)||0; __aggrErr = (ctx.G && ctx.G._aggrErr)||0;
   __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
@@ -474,4 +482,7 @@ function main() {
   fs.writeFileSync(path.join(__dirname, base + '.json'), JSON.stringify({ level, games, seed, wins, draws, stuck }, null, 2));
   console.log('已写入', base + '.md /', base + '.json');
 }
-main();
+// 供 analyze_draw_cause.js 等诊断脚本复用同一套提取/装载/对局驱动（单一真身）
+module.exports = { loadGameCode, runOneGame, buildSandbox, wilsonCI };
+
+if (require.main === module) main();
