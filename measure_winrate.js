@@ -198,6 +198,16 @@ checkOpponentHu = function(pi) {
   if (r && r.isWin && !G.gameOver) { __winner = 'win:' + pi + ':' + (r.totalHu || 0); G.gameOver = true; }
   return r;
 };
+// ── 旁家吃牌类型计数（规则审计用：吃统只允许"吃即胡"，对子/口/进取 均为规则外通道）──
+var __ochiFn = opponentChi;
+opponentChi = function(pi, ch, r) {
+  try {
+    G._chiT = G._chiT || {};
+    var __k = (r && (r.chiType + (r.tingType ? '/' + r.tingType : ''))) || '?';
+    G._chiT[__k] = (G._chiT[__k] || 0) + 1;
+  } catch (e) {}
+  return __ochiFn(pi, ch, r);
+};
 function __makeAHCached(orig, cache) {
   return function(cards, preMelds) {
     var sig = '';
@@ -260,7 +270,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
+var __chiTotal = null; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 // opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
@@ -415,6 +425,8 @@ function runOneGame(loader, levels, seed, opts) {
   __aggrChk = (ctx.G && ctx.G._aggrChk)||0; __aggrHit = (ctx.G && ctx.G._aggrHit)||0; __aggrErr = (ctx.G && ctx.G._aggrErr)||0;
   __claimTotal += (ctx.__claims || 0); __pwTotal += (ctx.__pwFired || 0); __claimChkTotal += (ctx.__claimChk || 0);
   ctx.__p9c = Object.assign({}, ctx.G._p9c||null, ctx.G._p9z||null); __p9cLast = ctx.__p9c; // Phase9 真值计数
+  ctx.__chi = ctx.G._chiT || null; // 旁家吃牌类型计数（规则审计）
+  if (ctx.__chi) { __chiTotal = __chiTotal || {}; for (const k in ctx.__chi) __chiTotal[k] = (__chiTotal[k] || 0) + ctx.__chi[k]; }
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -474,7 +486,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}`;
