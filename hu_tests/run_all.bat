@@ -9,9 +9,13 @@ cd /d "%~dp0.."
 echo ════════ 1/6 提取核心代码 ════════
 python hu_tests\extract_core.py step5-hu.html hu_tests\hu_core_current.js step5-hu_backup_before_flowskin_swap.html hu_tests\hu_core_before.js
 if errorlevel 1 (
-  echo [提取失败] 请确认已安装 Python 3
-  pause
-  exit /b 1
+  echo [未找到 Python，改用 Node 版提取器]
+  node hu_tests\extract_core.js step5-hu.html hu_tests\hu_core_current.js step5-hu_backup_before_flowskin_swap.html hu_tests\hu_core_before.js
+  if errorlevel 1 (
+    echo [提取失败] 请确认已安装 Python 3 或 Node.js
+    pause
+    exit /b 1
+  )
 )
 echo.
 
@@ -46,6 +50,11 @@ echo.
 echo ════════ 运行 test_hu_perf.js ════════
 node test_hu_perf.js
 if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_hu_perf.js) else (set /a PASS+=1 & echo [通过] test_hu_perf.js)
+echo.
+
+echo ════════ 运行 test_peng_chi_rules.js ════════
+node test_peng_chi_rules.js
+if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_peng_chi_rules.js) else (set /a PASS+=1 & echo [通过] test_peng_chi_rules.js)
 echo.
 
 echo ════════════════════════════════════════

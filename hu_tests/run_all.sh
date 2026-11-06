@@ -10,7 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR/.."   # 切到游戏目录（step5-hu.html 所在）
 
 echo "════════ 1/6 提取核心代码 ════════"
-python hu_tests/extract_core.py step5-hu.html hu_tests/hu_core_current.js step5-hu_backup_before_flowskin_swap.html hu_tests/hu_core_before.js || { echo "[提取失败]"; exit 1; }
+if command -v python3 >/dev/null 2>&1; then PY=python3; elif command -v python >/dev/null 2>&1; then PY=python; else PY=; fi
+if [ -n "$PY" ]; then
+  $PY hu_tests/extract_core.py step5-hu.html hu_tests/hu_core_current.js step5-hu_backup_before_flowskin_swap.html hu_tests/hu_core_before.js || { echo "[提取失败]"; exit 1; }
+else
+  node hu_tests/extract_core.js step5-hu.html hu_tests/hu_core_current.js step5-hu_backup_before_flowskin_swap.html hu_tests/hu_core_before.js || { echo "[提取失败]"; exit 1; }
+fi
 echo ""
 
 PASS=0
@@ -36,6 +41,7 @@ run test_hu_perf.js              # 性能(120ms AI预算内)
 run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 run test_ai_concede.js           # Phase7.5: 显式止损模式(concede)
 run test_ai_feed.js              # Phase7.6: 主动喂牌(止损下引导便宜家胡牌)
+run test_peng_chi_rules.js       # 规则约束: 碰限两次(第三次须捉铳)/吃只能吃即胡
 
 echo "════════════════════════════════════════"
 echo "结果: 通过 $PASS / 失败 $FAIL"
