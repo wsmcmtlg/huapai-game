@@ -8591,30 +8591,14 @@ function _aiCheckOpponentChi(playerIdx, ch) {
   var hand = opponentHands[playerIdx];
   if (!hand || hand.length === 0) return null;
   
-  // Phase12 荒庄压降: 进取性吃——吃后形成听牌结构即吃(限3次), AI不再只会吃了即胡
-  var _curPot = 0;
-  try { _curPot = _aiHuPotential(hand, preMelds).potential || 0; } catch(e) { _curPot = 0; }
-  function _aggrChiOk(sh, sm) {
-    G._aggrChk = (G._aggrChk||0)+1;
-    var pc = 0;
-    for (var i2 = 0; i2 < sm.length; i2++) { var t2 = sm[i2].type; if (t2==='seq'||t2==='kou'||t2==='pair') pc++; }
-    if (pc >= 3) return false;
-    // 判定：吃后潜力提升 >=3（更接近成牌），或吃后即具备结构听
-    var _r2 = false;
-    try {
-      var _pot2 = _aiHuPotential(sh, sm).potential || 0;
-      if (_pot2 >= _curPot + 3) _r2 = true;
-      else { var _tg = _aiCalcTingInfoCached(sh, sm); _r2 = (_tg.canTingStruct === true || _tg.canTing === true); }
-    } catch(e) { G._aggrErr = (G._aggrErr||0)+1; _r2 = false; }
-    if (_r2) G._aggrHit = (G._aggrHit||0)+1;
-    return _r2;
-  }
+  // [规则整改 2026-11-05] 删除 Phase12"进取性吃"——吃统只有"吃进即胡"（捉铳）一种，
+  // 不存在"吃后听牌/吃后结构更好就吃"的说法（用户口径）。原 _aggrChiOk 及三处调用已移除。
   
   // ═══ 前置检查: 旁家必须处于听牌状态(两听/摞听)才能吃牌 ═══
   var preMelds = _buildPreMelds(playerIdx);
   var simCards = hand.map(function(c){return makeCardData(c);});
   var handResult = analyzeHand(simCards, preMelds);
-  // Phase12: 前置不再要求手牌已是胡结构——进取性吃(吃后成听牌结构)对普通手牌开放
+  // 吃统 = 捉铳：下面每个分支都必须"吃进这张牌即可胡"（result.isWin && totalHu >= MIN_HU）才成立
   var _handIsWin = !!(handResult && handResult.isWin);
   
   // 计算手中各字面数量
@@ -8660,9 +8644,6 @@ function _aiCheckOpponentChi(playerIdx, ch) {
     if (result && result.isWin && result.totalHu >= MIN_HU) {
       return { tingType:'两听', chiType:'顺', chars:[seq[0],seq[1],seq[2]], meldInfo:{type:'seq', chars:[seq[0],seq[1],seq[2]]} };
     }
-    if (_aggrChiOk(simHand, simMelds)) {
-      return { tingType:'进取', chiType:'顺', chars:[seq[0],seq[1],seq[2]], meldInfo:{type:'seq', chars:[seq[0],seq[1],seq[2]]} };
-    }
   }
   
   // ═══ 摞听吃牌：吃后形成半顺子(口)或对子(对)作为第2眼 ═══
@@ -8676,9 +8657,6 @@ function _aiCheckOpponentChi(playerIdx, ch) {
     var result = analyzeHand(simCards, simMelds);
     if (result && result.isWin && result.totalHu >= MIN_HU) {
       return { tingType:'摞听', chiType:'对', chars:[ch,ch], meldInfo:{type:'pair', chars:[ch,ch]} };
-    }
-    if (_aggrChiOk(simHand, simMelds)) {
-      return { tingType:'进取', chiType:'对', chars:[ch,ch], meldInfo:{type:'pair', chars:[ch,ch]} };
     }
   }
   
@@ -8696,9 +8674,6 @@ function _aiCheckOpponentChi(playerIdx, ch) {
       var result = analyzeHand(simCards, simMelds);
       if (result && result.isWin && result.totalHu >= MIN_HU) {
         return { tingType:'摞听', chiType:'口', chars:[ch, otherCh], meldInfo:{type:'kou', chars:[ch, otherCh]} };
-      if (_aggrChiOk(simHand, simMelds)) {
-        return { tingType:'进取', chiType:'口', chars:[ch, otherCh], meldInfo:{type:'kou', chars:[ch, otherCh]} };
-      }
       }
     }
     if (kouChars[1] === ch && (counts[kouChars[0]] || 0) >= 1) {
@@ -8711,9 +8686,6 @@ function _aiCheckOpponentChi(playerIdx, ch) {
       var result = analyzeHand(simCards, simMelds);
       if (result && result.isWin && result.totalHu >= MIN_HU) {
         return { tingType:'摞听', chiType:'口', chars:[otherCh, ch], meldInfo:{type:'kou', chars:[otherCh, ch]} };
-      if (_aggrChiOk(simHand, simMelds)) {
-        return { tingType:'进取', chiType:'口', chars:[otherCh, ch], meldInfo:{type:'kou', chars:[otherCh, ch]} };
-      }
       }
     }
   }

@@ -253,6 +253,33 @@ function __hTryChuan(policy) {
   if (G.deckCount > 0) { var ds = G.deck.shift(); G.deckCount--; handCards.push(parseDeckCard(ds)); } // 页面：穿后补摸一张
   return {ok: true, why: 'chuan', huNow: huNow};
 }
+// ── 招手→泛牌（等价页面 dealerFan 的"招牌+第5张"路径）──
+function __hTryFan(policy) {
+  if (policy === 'off') return {ok: false, why: 'off'};
+  var zi = -1;
+  for (var i = (G.dealerMelds || []).length - 1; i >= 0; i--) {
+    if (G.dealerMelds[i].type === 'zhao') { zi = i; break; }
+  }
+  if (zi < 0) return {ok: false, why: 'no-zhao'};
+  var zhao = G.dealerMelds[zi], zc = zhao.char;
+  var hi = -1;
+  for (var h = handCards.length - 1; h >= 0; h--) { if (handCards[h].ch === zc) { hi = h; break; } }
+  if (hi < 0) return {ok: false, why: 'no-fifth'};
+  var fifth = handCards.splice(hi, 1)[0];
+  var baseCards = (zhao.cards || []).slice();
+  var fanMeld = {
+    type: 'fan', char: zc, count: 5,
+    cards: baseCards.concat([fifth]),
+    chars: (zhao.chars ? zhao.chars.slice() : baseCards.map(function(c){ return c.ch; })).concat([fifth.ch])
+  };
+  var probe = analyzeHand(handCards.slice(), __hPreMelds(zi, fanMeld));
+  var huNow = !!(probe && probe.isWin);
+  var doIt = (policy === 'always') || (policy === 'hu-only' && huNow);
+  if (!doIt) { handCards.push(fifth); return {ok: false, why: 'skip', huNow: huNow}; }
+  G.dealerMelds.splice(zi, 1, fanMeld);
+  if (G.deckCount > 0) { var ds = G.deck.pop(); G.deckCount--; handCards.push(parseDeckCard(ds)); } // 页面：泛后补摸（牌顶 pop）
+  return {ok: true, why: 'fan', huNow: huNow};
+}
 function __makeAHCached(orig, cache) {
   return function(cards, preMelds) {
     var sig = '';
@@ -315,7 +342,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __chiTotal = null; var __chuanTotal = 0, __chuanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
+var __chiTotal = null; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 // opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
@@ -393,6 +420,11 @@ function runOneGame(loader, levels, seed, opts) {
       // 扎→穿升级（页面 dealerCheckChuan/dealerChuan；policy 由 --chuan 控制）
       const _cr = vm.runInContext(`__hTryChuan(${JSON.stringify(chuanPolicy)})`, vmctx);
       if (_cr && _cr.ok) { __chuanTotal++; if (_cr.huNow) __chuanHuTotal++; }
+    }
+    // 招手→泛（页面 dealerFan"招牌+第5张"路径；泛后补摸一张）
+    if (chuanPolicy !== 'off') {
+      const _fr = vm.runInContext(`__hTryFan(${JSON.stringify(chuanPolicy)})`, vmctx);
+      if (_fr && _fr.ok) { __fanTotal++; if (_fr.huNow) __fanHuTotal++; }
     }
     // 摸后自摸胡检测（含庄家明牌组 preMelds，转换逻辑与页面捉铳分支一致）
     const hu = vm.runInContext('analyzeHand(handCards.slice(), __hPreMelds())', vmctx);
@@ -529,7 +561,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}` + (chuan === 'off' ? '' : '_chuan-' + chuan.replace('hu-only', 'huOnly'));
