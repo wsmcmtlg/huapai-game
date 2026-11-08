@@ -42,6 +42,7 @@ run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 run test_ai_concede.js           # Phase7.5: 显式止损模式(concede)
 run test_ai_feed.js              # Phase7.6: 主动喂牌(止损下引导便宜家胡牌)
 run test_peng_chi_rules.js       # 规则约束: 碰限两次(第三次须捉铳)/吃只能吃即胡
+run test_tong_win_shapes.js      # 牌型级: 两听口凑顺·凑碰 / 摞听赖14字能胡8字不能
 
 echo "════════════════════════════════════════"
 echo "结果: 通过 $PASS / 失败 $FAIL"

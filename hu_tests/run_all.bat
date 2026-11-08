@@ -57,6 +57,11 @@ node test_peng_chi_rules.js
 if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_peng_chi_rules.js) else (set /a PASS+=1 & echo [通过] test_peng_chi_rules.js)
 echo.
 
+echo ════════ 运行 test_tong_win_shapes.js ════════
+node test_tong_win_shapes.js
+if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_tong_win_shapes.js) else (set /a PASS+=1 & echo [通过] test_tong_win_shapes.js)
+echo.
+
 echo ════════════════════════════════════════
 echo 结果: 通过 %PASS% / 失败 %FAIL%
 if %FAIL%==0 (echo ✅ 全部通过) else (echo ❌ 存在失败，请检查上述 [失败] 项)
