@@ -635,6 +635,15 @@
     padding: 1px 0;
   }
   .settle-hu-row .hu-label { color: #9ca3af; }
+  /* 2026-11-06 高光：大牌型（穿/泛/扎/招牌）行加暖色高亮 */
+  .settle-hu-row.hu-row-glow {
+    background: linear-gradient(90deg, rgba(251,191,36,.16), rgba(251,191,36,0));
+    border-left: 2px solid #f59e0b;
+    padding-left: 6px;
+    border-radius: 3px;
+  }
+  .settle-hu-row.hu-row-glow .hu-label { color: #fbbf24; font-weight: 600; }
+  .settle-hu-row.hu-row-glow .hu-val { color: #fcd34d; font-weight: 700; }
   .settle-hu-row .hu-val { color: #fbbf24; font-weight: bold; }
   .settle-total {
     text-align: center;
@@ -6549,6 +6558,14 @@ function updateTingHint() {
     return;
   }
   el.style.display = 'block';
+  // 2026-11-06 体感：刚进听那一刻给一声轻响（同一听牌状态只响一次）
+  try {
+    var _sig = tingChars.map(function(t){return t.ch;}).join('');
+    if (G._lastTingSig !== _sig) {
+      G._lastTingSig = _sig;
+      if (typeof SoundManager !== 'undefined' && SoundManager && SoundManager.play) SoundManager.play('ting');
+    }
+  } catch (e) {}
   tingChars.sort((a, b) => SORT_ORDER.indexOf(a.ch) - SORT_ORDER.indexOf(b.ch));
   let html = '<span style="margin-right:8px;color:#ffd700;font-size:13px;">听牌:</span>';
   for (const t of tingChars) {
@@ -6981,8 +6998,10 @@ function showSettlePanel(winnerIdx, winResult, winType) {
   let breakdownHtml = '';
   if (winResult.breakdown) {
     winResult.breakdown.forEach(b => {
-      breakdownHtml += '<div class="settle-hu-row">' +
-        '<span class="hu-label">' + b.label + ' (' + b.chars + ')</span>' +
+      // 2026-11-06 体感：大牌型（穿/泛/扎/招牌 / 精牌坎）高光标注
+      var _big = /穿|泛|扎|招牌/.test(b.label || '') || (b.hu >= 8);
+      breakdownHtml += '<div class="settle-hu-row' + (_big ? ' hu-row-glow' : '') + '">' +
+        '<span class="hu-label">' + (_big ? '★ ' : '') + b.label + ' (' + b.chars + ')</span>' +
         '<span class="hu-val">+' + b.hu + '胡</span></div>';
     });
   }
