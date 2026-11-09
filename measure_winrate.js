@@ -226,6 +226,20 @@ var __odz = _aiDecideZha; _aiDecideZha = function(h, ch, pi, w) { if (__lvCfg[pi
 var __ochi = _aiCheckOpponentChi; _aiCheckOpponentChi = function(pi, ch) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __ochi(pi, ch); };
 var __opd = aiPickDiscard; aiPickDiscard = function(h, pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __opd(h, pi); };
 var __oap = opponentAutoPlay; opponentAutoPlay = function(pi) { __hcnt.oppAutoPlay++; if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __oap(pi); };
+// ── 动作剖面计数（AI 调参用：看清每局实际发生了哪些加速动作）──
+var __act = {};
+(function () {
+  var names = ['opponentPen','opponentZhao','opponentChuan','opponentFan','opponentZha',
+               'dealerPen','dealerZhao','dealerZha','dealerChuan','dealerFan'];
+  for (var i = 0; i < names.length; i++) {
+    var n = names[i];
+    if (typeof globalThis[n] === 'function') {
+      globalThis[n] = (function (orig, key) {
+        return function () { __act[key] = (__act[key] || 0) + 1; return orig.apply(this, arguments); };
+      })(globalThis[n], n);
+    }
+  }
+})();
 // ── 旁家捉铳直接成交：opponentHu 链在 DOM stub 下不可靠，检测到 isWin 立即记胜 ──
 var __hcnt = { oppAutoPlay: 0, oppHuChk: 0, oppHuWin: 0, oppDraw: 0, oppPen: 0, oppChi: 0, oppZha: 0 };
 var __ohu0 = checkOpponentHu;
@@ -385,7 +399,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __chiTotal = null; var __hcntTotal = {}; var __penChkTotal = 0, __penDenTotal = 0; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
+var __chiTotal = null; var __hcntTotal = {}; var __actTotal = {}; var __penChkTotal = 0, __penDenTotal = 0; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 // opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
@@ -417,6 +431,8 @@ function runOneGame(loader, levels, seed, opts) {
     G._passRecord = {}; G._skippedOps = {};
     G.dealerMelds = G.dealerMelds || [];   // 页面靠延迟初始化，测量环境需显式补齐
     __lvCfg[0] = ${levels[0]}; __lvCfg[1] = ${levels[1]}; __lvCfg[2] = ${levels[2]};
+    G._penForce = ${!!(opts && opts.penForce)};      // 调参：强制碰
+    G._penNoReject = ${!!(opts && opts.penNoReject)}; // 调参：跳过放铳否决
   `, vmctx);
 
   // 统计循环：驱动任务队列 + 庄家回合接管
@@ -548,6 +564,11 @@ function runOneGame(loader, levels, seed, opts) {
     const hc = JSON.parse(vm.runInContext('JSON.stringify(__hcnt)', vmctx));
     for (const k in hc) __hcntTotal[k] = (__hcntTotal[k] || 0) + (hc[k] || 0);
   } catch (e) { /* 忽略 */ }
+  // 动作剖面
+  try {
+    const ac = JSON.parse(vm.runInContext('JSON.stringify(__act)', vmctx));
+    for (const k in ac) __actTotal[k] = (__actTotal[k] || 0) + (ac[k] || 0);
+  } catch (e) { /* 忽略 */ }
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -575,6 +596,8 @@ function main() {
   const table = getArg('--table', 'cal');
   const humanLv = +getArg('--human-level', 1);
   const chuan = getArg('--chuan', 'off'); // off | hu-only | always（扎→穿升级策略）
+  const penForce = args.includes('--pen-force');
+  const penNoReject = args.includes('--pen-no-reject');
   if (!['off', 'hu-only', 'always'].includes(chuan)) { console.error('--chuan 只能是 off|hu-only|always'); process.exit(2); }
   // 双桌口径（08号文档）：cal=校准桌（目标AI+2高手陪练）；exp=体验桌（人类代理+2×目标AI）
   const levels = table === 'exp' ? [humanLv, level, level] : [level, 1, 1];
@@ -591,7 +614,7 @@ function main() {
   for (let g = 0; g < games; g++) {
     process.stdout.write(`\r局 ${g + 1}/${games}`);
     let r;
-    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan }); }
+    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject }); }
     catch (e) { r = { winner: 'error', hu: 0, msg: e.message + ' @ ' + (e.stack || '').split('\n')[1] } }
     if (r.winner === -1 || r.winner === 'draw') draws++;
     else if (r.winner === 'stuck' || r.winner === 'error') { stuck++; if (stuck <= 5) console.log('\n异常:', (r.msg || r.winner).slice(0, 160)); fs.appendFileSync(path.join(__dirname, 'measure_errors.log'), JSON.stringify({ g, r: r.winner, msg: r.msg }) + '\n'); }
@@ -610,7 +633,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），旁家碰牌AI判据 检查${__penChkTotal}/否决${__penDenTotal}，招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），旁家流程 ${JSON.stringify(__hcntTotal)}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），旁家碰牌AI判据 检查${__penChkTotal}/否决${__penDenTotal}，招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），动作剖面 ，旁家流程 ${JSON.stringify(__hcntTotal)}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}` + (chuan === 'off' ? '' : '_chuan-' + chuan.replace('hu-only', 'huOnly'));

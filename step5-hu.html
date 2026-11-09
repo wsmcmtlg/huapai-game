@@ -7973,13 +7973,16 @@ function _aiCalcTingInfo(simHand, preMelds) {
 // AI碰牌总决策（供opponentAutoPlay和checkOpponentResponse调用）
 function _aiDecidePen(hand, ch, playerIdx) {
   var lv = G.aiLevel;
+  // 调参开关：G._penForce=true 时不问收益直接碰（用于量化"碰的保守程度"对荒庄的影响）
+  if (G._penForce) return true;
+  if (G._penNoReject) { /* 跳过 Phase7.7 放铳否决，只走阈值判定，见下 */ }
   // 菜鸟：始终碰
   if (lv === 0) return true;
   // 高手：基础策略 - 有利才碰
   if (lv >= 1) {
     var result = _aiPenBenefit(hand, ch, playerIdx);
     // Phase 7.7: 碰后无安全牌可打（放铳风险高）→ 直接否决
-    if (result.reject) return false;
+    if (result.reject && !G._penNoReject) return false;
     // Phase 4: 阶段感知调整碰牌阈值
     // Phase12 荒庄压降：放宽碰牌门槛，防守加值 3→2
     var baseThreshold = (lv === 1) ? -9 : (lv === 2) ? -5 : -2;
