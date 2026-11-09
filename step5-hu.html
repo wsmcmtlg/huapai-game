@@ -5714,7 +5714,9 @@ const JING_RED_TABLE = {
   },
   'kan': {
     // 含赖子（赖=花精，仅红精三五七）
-    '1_0_2': 12, '2_0_1': 9,  '0_1_2': 7,  '1_1_1': 7,  '0_2_1': 6,
+    // 2026-11-05 按用户口径修正小概率组合奖励：主精为三时 叁叁赖(0皮2赖)=18、叁赖赖(1皮2赖)=24
+    // 表内为基础值（主精再 ×2）：0_2_1: 6→9、0_1_2: 7→12
+    '1_0_2': 12, '2_0_1': 9,  '0_1_2': 12, '1_1_1': 7,  '0_2_1': 9,
     // 纯精牌（无赖子；补齐后与反馈版/计分引擎一致，原靠兜底算对）
     '2_1_0': 7,  '1_2_0': 6,  '0_3_0': 5,
   },
@@ -5816,12 +5818,18 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
 
   if (mtype === 'pair') {
     // 对子(眼): 红牌对子无精牌=0胡；有精牌或赖子→逐张计胡(黑花精+1,皮红精+1,花红精+2,赖子+2)
-    if (hasJing || wc > 0) {
-      const r = _lookupJingHu(cards, 'pair', isMain);
+    // 2026-11-05：胡牌张(统牌/自摸张, isTongCard)不计胡 —— "摞"是 8 圆句+1 单张的结构，
+    // 胡牌那张只是把单张圆成对，计胡只算"摞"本身（如 三摞=2胡、上摞=0胡）
+    const vCards = cards.filter(c => !c.isTongCard);
+    const vChars = optChars ? chars.filter((ch, i) => !cards[i] || !cards[i].isTongCard) : vCards.map(c => c.ch);
+    const vHasJing = vChars.some(ch => JING_CHARS.has(ch));
+    const vWc = vCards.filter(c => c.isWild).length;
+    if (vHasJing || vWc > 0) {
+      const r = _lookupJingHu(vCards, 'pair', isMain);
       if (r !== null) return r;
       // 查表未命中(乙九黑精): 逐张计胡
       let h = 0;
-      for (const c of cards) h += calcJingHu(c, mainJinChar);
+      for (const c of vCards) h += calcJingHu(c, mainJinChar);
       return h;
     }
     return 0;
@@ -6555,6 +6563,69 @@ function updateTingHint() {
 }
 
 
+/* ═══ 2026-11-05 扎/穿席位可重新指派 ═══
+ * 规则：招牌/泛牌在明牌区、牌已固定；扎/穿在玩家手中、旁家未知，
+ * 因此只要满足扎牌数量，"具体拿哪几张去扎"由玩家自主选择。
+ * 判胡时不能把已选的扎当成硬约束，需对每个 inHand 扎枚举三种席位取最优：
+ *   ① 保持扎（4 张，按扎计胡）
+ *   ② 溶解回手牌（可自然成 坎 3 张 + 1 张自由牌）
+ *   ③ 升为穿（需池中还有同字第 5 张，按穿计胡）
+ */
+function _preFromMeldList(list) {
+  const out = [];
+  for (const m of (list || [])) {
+    if (m.type === 'zha' && m.inHand) {
+      const cs = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      out.push({type: 'zha', chars: cs.map(c => c.ch), cards: cs.slice(0, 4)});
+    } else {
+      const cs2 = m.cards || Array.from({length: m.count || 3}, () => makeCardData(m.char));
+      const chars = m.chars ? m.chars.slice() : cs2.map(c => c.ch);
+      out.push({type: m.type || 'pen', chars, cards: cs2});
+    }
+  }
+  return out;
+}
+
+function _huFlexPick(cards, melds) {
+  const zhas = [], fixed = [];
+  for (const m of (melds || [])) {
+    if (m.type === 'zha' && m.inHand) zhas.push(m); else fixed.push(m);
+  }
+  let best = null, bestHu = -1;
+  const consider = (meldList, extraCards, consumed) => {
+    const pool = cards.filter(c => !consumed.has(c)).concat(extraCards);
+    const r = analyzeHand(pool, _preFromMeldList(meldList));
+    if (!r) return;
+    const t = _calcTotalHu(r.melds, r.mainJin);
+    if (t.total > bestHu) { bestHu = t.total; best = {result: r, totalHu: t.total, breakdown: t.breakdown, meldList, pool}; }
+  };
+  let frontier = [[fixed.slice(), [], new Set()]];
+  for (const m of zhas) {
+    const next = [];
+    const cs = (m.cards || []).slice();
+    const zc = m.char || (cs[0] && cs[0].ch);
+    for (const [list, extra, cons] of frontier) {
+      // ① 保持扎
+      next.push([list.concat([m]), extra, cons]);
+      // ② 溶解回手牌
+      next.push([list, extra.concat(cs), cons]);
+      // ③ 升为穿：池中还有同字第 5 张
+      const pool = cards.filter(c => !cons.has(c)).concat(extra);
+      const fifth = pool.find(c => c.ch === zc && cs.indexOf(c) < 0);
+      if (fifth && cs.length >= 4) {
+        const cons3 = new Set(cons); cons3.add(fifth);
+        const mcards = cs.concat([fifth]);
+        next.push([list.concat([{type: 'chuan', char: zc, count: 5, cards: mcards,
+          chars: mcards.map(x => x.ch)}]), extra, cons3]);
+      }
+    }
+    frontier = next;
+  }
+  for (const [list, extra, cons] of frontier) consider(list, extra, cons);
+  return best;
+}
+
+
 function checkDealerSelfHu() {
   // 收集预成型melds（碰牌/招牌/穿牌/泛牌/扎牌）
   const preMelds = [];
@@ -6574,10 +6645,10 @@ function checkDealerSelfHu() {
   const allCards = [...handCards];
   if (G.drawnCard) allCards.push(G.drawnCard);
 
-  const result = analyzeHand(allCards, preMelds);
-  if (result) {
-    const huResult = _calcTotalHu(result.melds, result.mainJin);
-    return { ...result, totalHu: huResult.total, breakdown: huResult.breakdown };
+  // 2026-11-05：改为"扎席位可重指派"判胡（保持扎/溶解成坎+自由牌/升穿 三种席位取最优）
+  const flex = _huFlexPick(allCards, G.dealerMelds);
+  if (flex) {
+    return { ...flex.result, totalHu: flex.totalHu, breakdown: flex.breakdown };
   }
   return null;
 }
@@ -6641,9 +6712,10 @@ function checkOpponentHu(playerIdx) {
   // 菜鸟: 不检测自摸（太弱了摸到也不胡）
   if (G.aiLevel === 0) return null;
   // 高手/大师: 完整analyzer检测
-  const { cards, preMelds } = _oppToCardData(playerIdx);
-  const result = analyzeHand(cards, preMelds);
-  return result; // null=不胡, 或{isWin,totalHu,melds,mainJin,...}
+  // 2026-11-05：改为"扎席位可重指派"判胡（与庄家侧同口径）
+  const { cards } = _oppToCardData(playerIdx);
+  const best = _huFlexPick(cards, opponentMelds[playerIdx] || []);
+  return best ? best.result : null;
 }
 
 // 旁家检测摸到某牌后能否自摸胡（含指定额外牌）
@@ -6651,9 +6723,11 @@ function checkOpponentHuWithCard(playerIdx, extraChar) {
   // 菜鸟: 极低概率捉统（5%）
   if (G.aiLevel === 0 && Math.random() > 0.05) return null;
   // 高手: 完整检测
-  const { cards, preMelds } = _oppToCardData(playerIdx);
-  cards.push(makeCardData(extraChar));
-  return analyzeHand(cards, preMelds);
+  // 2026-11-05：统牌按 isTongCard 标记（不计胡、且不能成坎），并走扎席位枚举
+  const { cards } = _oppToCardData(playerIdx);
+  cards.push(Object.assign(makeCardData(extraChar), {isTongCard: true}));
+  const best = _huFlexPick(cards, opponentMelds[playerIdx] || []);
+  return best ? best.result : null;
 }
 
 // ── 高亮胡牌组合 ──
@@ -7055,44 +7129,19 @@ checkResponseAfterOpponent = function(fromIdx) {
   const filteredTestCards = testCards;
 
   // ★ 自由拆分（统牌已标记isTongCard，_partition会将含统牌的坎牌自动转为碰牌）
-  var huResult = analyzeHand(filteredTestCards, dealerPreMelds);
-  if (huResult) {
-    const huDetail = _calcTotalHu(huResult.melds, huResult.mainJin);
-    huResult.totalHu = huDetail.total;
-    huResult.breakdown = huDetail.breakdown;
-    console.log('[流程] 庄家可胡牌! ' + huDetail.total + '胡');
-    G._pendingWin = { ...huResult, winType: '捉统' };
+  // 2026-11-05：改为"扎席位可重指派"——保持扎 / 溶解成坎+自由牌 / 升为穿，三种席位取最优
+  var huFlex = _huFlexPick(filteredTestCards, G.dealerMelds);
+  if (huFlex) {
+    huFlex.result.totalHu = huFlex.totalHu;
+    huFlex.result.breakdown = huFlex.breakdown;
+    console.log('[流程] 庄家可胡牌! ' + huFlex.totalHu + '胡');
+    G._pendingWin = { ...huFlex.result, winType: '捉统' };
     canHu = true;
   }
+  var huResult = canHu ? G._pendingWin : null;
 
-  // ★ 若当前扎牌配置无法胡牌，尝试释放含赖子的inHand扎牌重新分配
-  // （场景：扎七用了2赖子，释放后改为扎五，七七八八形成两听）
-  if (!canHu) {
-    for (var zi = 0; zi < dealerPreMelds.length; zi++) {
-      var zm = dealerPreMelds[zi];
-      if (zm.type === 'zha' && zm.cards && zm.cards.some(function(c) { return c.isWild; })) {
-        // 释放此扎牌：从preMelds移除，所有牌放回手牌池
-        var altPreMelds = [];
-        for (var zj = 0; zj < dealerPreMelds.length; zj++) {
-          if (zj !== zi) altPreMelds.push(dealerPreMelds[zj]);
-        }
-        var altTestCards = filteredTestCards.slice();
-        for (var zk = 0; zk < zm.cards.length; zk++) {
-          altTestCards.push(zm.cards[zk]);
-        }
-        var altResult = analyzeHand(altTestCards, altPreMelds);
-        if (altResult) {
-          const altDetail = _calcTotalHu(altResult.melds, altResult.mainJin);
-          altResult.totalHu = altDetail.total;
-          altResult.breakdown = altDetail.breakdown;
-          console.log('[流程] 庄家可胡牌(扎牌赖子重分配)! ' + altDetail.total + '胡');
-          G._pendingWin = { ...altResult, winType: '捉统' };
-          canHu = true;
-          break;
-        }
-      }
-    }
-  }
+  // 说明：原"仅释放含赖的扎牌重分配"兜底（L7132-7159）已被 _huFlexPick 的
+  // 通用扎席位枚举（保持扎 / 溶解成坎+自由牌 / 升穿）完全覆盖，故删除该分支。
 
   // 1. 检查庄家是否可碰或可招
   const dealerCount = handCards.filter(c => c.ch === ch).length;

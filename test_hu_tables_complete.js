@@ -24,10 +24,10 @@ const testCode = `
     {type:'kan', f:0,s:3,w:0, not:5,  main:10},
     {type:'kan', f:1,s:2,w:0, not:6,  main:12},
     {type:'kan', f:2,s:1,w:0, not:7,  main:14},
-    {type:'kan', f:0,s:2,w:1, not:6,  main:12},
+    {type:'kan', f:0,s:2,w:1, not:9,  main:18},   // 2026-11-05 用户口径：叁叁赖=18（小概率奖励）
     {type:'kan', f:1,s:1,w:1, not:7,  main:14},
     {type:'kan', f:2,s:0,w:1, not:9,  main:18},
-    {type:'kan', f:0,s:1,w:2, not:7,  main:14},
+    {type:'kan', f:0,s:1,w:2, not:12, main:24},   // 2026-11-05 用户口径：叁赖赖=24（小概率奖励）
     {type:'kan', f:1,s:0,w:2, not:12, main:24},
     // ── 红精扎/招 ──
     {type:'zha', f:1,s:3,w:0, not:12, main:24},
@@ -92,3 +92,5 @@ for (const r of res) {
 }
 console.log('\n共 ' + res.length + ' 项，失败 ' + fail + ' 项');
 console.log(all ? '精牌查表全部验证通过 ✅' : '存在失败 ❌');
+// 2026-11-05：补退出码，否则失败也返回 0，回归套件会误判为通过
+process.exit(all ? 0 : 1);
