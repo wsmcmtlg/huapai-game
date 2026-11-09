@@ -3257,7 +3257,8 @@ function checkResponseAfterOpponent(fromIdx) {
       }
     } else {
       // 旁家捉铳检测
-      var oppHu = checkOpponentHu(pi);
+      // 2026-11-06 修复：捉铳必须把统牌算进去（原来只查手中牌 → 旁家永远捉不了铳）
+      var oppHu = checkOpponentHuWithCard(pi, ch);
       if (oppHu && oppHu.isWin) {
         console.log('[流程] 旁家' + pi + '可捉铳! ' + ch + ' → ' + oppHu.totalHu + '胡');
         setPhase(NAMES[pi] + '胡牌(捉铳)');
@@ -7166,6 +7167,23 @@ checkResponseAfterOpponent = function(fromIdx) {
   // 说明：原"仅释放含赖的扎牌重分配"兜底（L7132-7159）已被 _huFlexPick 的
   // 通用扎席位枚举（保持扎 / 溶解成坎+自由牌 / 升穿）完全覆盖，故删除该分支。
 
+  // ★ 2026-11-06 修复：旁家捉铳（统牌成胡）
+  // 此前生效版响应链只处理"庄家捉统"，旁家唯一胡法只剩"吃统即胡"，胡率被人为压低
+  if (!canHu) {
+    var _oppOrder = [(fromIdx + 1) % 3, (fromIdx + 2) % 3].filter(function(p) { return p !== 0; });
+    for (var _oi = 0; _oi < _oppOrder.length; _oi++) {
+      var _opi = _oppOrder[_oi];
+      if (opponentHands[_opi] && opponentHands[_opi].indexOf(ch) >= 0) continue; // 手上有同字→优先走碰/招链
+      var _oppHu = checkOpponentHuWithCard(_opi, ch);
+      if (_oppHu && _oppHu.isWin) {
+        console.log('[流程] 旁家' + _opi + '捉铳! ' + ch + ' → ' + (_oppHu.totalHu || 0) + '胡');
+        setPhase(NAMES[_opi] + '胡牌(捉铳)');
+        (function(pi){ setTimeout(function(){ opponentHu(pi, '捉铳'); }, 400); })(_opi);
+        return;
+      }
+    }
+  }
+
   // 1. 检查庄家是否可碰或可招
   const dealerCount = handCards.filter(c => c.ch === ch).length;
   const drawnMatch = G.drawnCard && G.drawnCard.ch === ch ? 1 : 0;
@@ -7371,6 +7389,17 @@ opponentAutoPlay = function(playerIdx) {
         opponentChuan(playerIdx, zhaCh2);
         return;
       }
+    }
+  }
+
+  // ★ 2026-11-06 修复：旁家摸牌后应做"自摸胡"检测
+  // 此前生效版此处直接出牌，旁家从来不自摸 → 旁家胡率被人为压到接近 0，全靠"吃统即胡"
+  if (G.aiLevel !== 0) {
+    const selfHu = checkOpponentHu(playerIdx);
+    if (selfHu && selfHu.isWin) {
+      console.log('[流程] 旁家' + playerIdx + '自摸胡 ' + (selfHu.totalHu || 0) + '胡');
+      opponentHu(playerIdx, '自摸');
+      return;
     }
   }
 

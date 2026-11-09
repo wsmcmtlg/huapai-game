@@ -73,6 +73,11 @@ const FN_RE = /function\s+([A-Za-z_$][\w$]*)\s*\(/g;
 const KEYWORDS = new Set(['if','for','while','switch','catch','return','function','var','let','const','new','typeof','delete','void','in','of','do','else','break','continue','case','default','throw','try','finally','instanceof','this','arguments','true','false','null','undefined','Math','JSON','Object','Array','String','Number','Boolean','Date','Map','Set','WeakMap','Promise','RegExp','Error','parseInt','parseFloat','isNaN','console','document','window','setTimeout','clearTimeout','setInterval','clearInterval','require','module','exports','Infinity','NaN','Symbol','Reflect','Proxy','alert','confirm','prompt','requestAnimationFrame','performance','localStorage']);
 const allFns = {};   // name -> source
 const allPos = {};   // name -> 在 scriptBody 中的起始位置（用于按源码顺序装载）
+// ⚠ 流程类函数固定用"第一份定义（旧版）"：它们深度耦合 DOM 动画/回调，
+//   而测量器自己有一套同步驱动循环；用生效版会导致双摸牌、流程走岔。
+//   规则与 AI 类函数则一律用"最后一份（生效版）"。
+const FLOW_LEGACY = new Set(['initGame', 'dealerPen', 'passToNext', 'checkResponseAfterOpponent',
+  'dealerHu', 'dealerPass', 'opponentAutoPlay', 'checkOpponentResponse']);
 let m;
 while ((m = FN_RE.exec(scriptBody))) {
   const name = m[1];
@@ -88,6 +93,7 @@ const ASSIGN_FN_RE = /(?:^|\n)([A-Za-z_$][\w$]*)\s*=\s*function\s*\(/g;
 while ((m = ASSIGN_FN_RE.exec(scriptBody))) {
   const name = m[1];
   if (KEYWORDS.has(name)) continue;
+  if (FLOW_LEGACY.has(name)) continue;   // 流程类保持第一份（旧版），见上
   const start = m.index + (m[0].startsWith('\n') ? 1 : 0);
   const fnKw = scriptBody.indexOf('function', start);
   if (fnKw < 0) continue;
@@ -219,11 +225,14 @@ var __odp = _aiDecidePen; _aiDecidePen = function(h, ch, pi) { if (__lvCfg[pi] !
 var __odz = _aiDecideZha; _aiDecideZha = function(h, ch, pi, w) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __odz(h, ch, pi, w); };
 var __ochi = _aiCheckOpponentChi; _aiCheckOpponentChi = function(pi, ch) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __ochi(pi, ch); };
 var __opd = aiPickDiscard; aiPickDiscard = function(h, pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __opd(h, pi); };
-var __oap = opponentAutoPlay; opponentAutoPlay = function(pi) { if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __oap(pi); };
+var __oap = opponentAutoPlay; opponentAutoPlay = function(pi) { __hcnt.oppAutoPlay++; if (__lvCfg[pi] !== undefined) G.aiLevel = __lvCfg[pi]; return __oap(pi); };
 // ── 旁家捉铳直接成交：opponentHu 链在 DOM stub 下不可靠，检测到 isWin 立即记胜 ──
+var __hcnt = { oppAutoPlay: 0, oppHuChk: 0, oppHuWin: 0, oppDraw: 0, oppPen: 0, oppChi: 0, oppZha: 0 };
 var __ohu0 = checkOpponentHu;
 checkOpponentHu = function(pi) {
+  __hcnt.oppHuChk++;
   var r = __ohu0(pi);
+  if (r && r.isWin) __hcnt.oppHuWin++;
   if (r && r.isWin && !G.gameOver) { __winner = 'win:' + pi + ':' + (r.totalHu || 0); G.gameOver = true; }
   return r;
 };
@@ -376,7 +385,7 @@ function loadGameCode() {
 }
 
 // ── 6. 单局对局驱动 ──
-var __chiTotal = null; var __penChkTotal = 0, __penDenTotal = 0; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
+var __chiTotal = null; var __hcntTotal = {}; var __penChkTotal = 0, __penDenTotal = 0; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 // opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
@@ -534,6 +543,11 @@ function runOneGame(loader, levels, seed, opts) {
   ctx.__chi = ctx.G._chiT || null; // 旁家吃牌类型计数（规则审计）
   if (ctx.__chi) { __chiTotal = __chiTotal || {}; for (const k in ctx.__chi) __chiTotal[k] = (__chiTotal[k] || 0) + ctx.__chi[k]; }
   __penChkTotal += (ctx.G._penChk || 0); __penDenTotal += (ctx.G._penDen || 0); // 旁家碰牌 AI 判据
+  // 旁家流程健康度（诊断测量器是否漏流程）
+  try {
+    const hc = JSON.parse(vm.runInContext('JSON.stringify(__hcnt)', vmctx));
+    for (const k in hc) __hcntTotal[k] = (__hcntTotal[k] || 0) + (hc[k] || 0);
+  } catch (e) { /* 忽略 */ }
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -596,7 +610,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），旁家碰牌AI判据 检查${__penChkTotal}/否决${__penDenTotal}，招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），旁家碰牌AI判据 检查${__penChkTotal}/否决${__penDenTotal}，招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），旁家流程 ${JSON.stringify(__hcntTotal)}，P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}` + (chuan === 'off' ? '' : '_chuan-' + chuan.replace('hu-only', 'huOnly'));
