@@ -7015,14 +7015,28 @@ function showSettlePanel(winnerIdx, winResult, winType) {
 
   // 保存结算HTML(用于工具栏查看)
   var mjText = winResult.mainJin ? ('主精: <span style="color:' + (RED_CHARS.has(winResult.mainJin) ? '#dc2626' : '#1a1a1a') + ';font-weight:bold;">' + winResult.mainJin + '</span>') : '无主精';
+  // 粘性：连败放水提示（营造"对手也会松一口气"的呼吸感，不暴露具体数值）
+  var _stickyHint = '';
+  try {
+    var _ez = _stickyEase();
+    if (_ez > 0 && winnerIdx > 0) {
+      _stickyHint = '<div class="settle-note" style="margin-top:8px;font-size:12px;opacity:.65;text-align:center;">' +
+        '别急，牌风总会转的（已连输 ' + _stickyGetStreak() + ' 局）</div>';
+    } else if (winnerIdx === 0 && _stickyGetStreak() === 0) {
+      _stickyHint = '<div class="settle-note" style="margin-top:8px;font-size:12px;opacity:.65;text-align:center;">漂亮！手风正顺</div>';
+    }
+  } catch (e) {}
+
   var settleContent = '<div class="settle-title">胡 牌</div>' +
     '<div class="settle-winner" style="margin-bottom:8px;">' + mjText + '</div>' +
     '<div class="settle-winner">' + name + ' ' + winType + _huDetailHtml(winType) + '</div>' +
     '<div class="settle-melds">' + meldsHtml + '</div>' +
     '<div class="settle-hu-breakdown">' + breakdownHtml + '</div>' +
     '<div class="settle-total">' + winResult.totalHu + '胡 = ' + points + '分</div>' +
-    scoreHtml;
+    scoreHtml + _stickyHint;
   _gameStats.lastSettleHtml = settleContent;
+  // 粘性：记录连败/连胜（玩家赢则清零，旁家赢则累加）
+  try { _stickyOnResult(winnerIdx); } catch (e) {}
 
   // 更新状态栏主精显示
   var mjDisplay = document.getElementById('main-jin-display');
@@ -7758,6 +7772,30 @@ function hideTingPanel() {
  * @param {string[]} hand - 旁家手牌字面数组
  * @returns {number} 要打出的牌在hand中的索引
  */
+/* ═══ 2026-11-06 粘性：连败放水（呼吸感压迫） ═══
+ * 设计目标（08号文档"心流通道"）：玩家被老千压得太狠会失去兴趣，
+ * 但要让人"感觉得到挣扎空间"而不是被明显放水。
+ * 做法：只对"旁家 AI 的出牌随机度"做微调（不改规则、不改判胡），
+ *   连败 2 局起每局 +1 档，最多 3 档，每档 ε +5%；玩家赢一局立刻清零。
+ */
+function _stickyGetStreak() {
+  try { return parseInt(localStorage.getItem('hu_streak') || '0', 10) || 0; } catch (e) { return 0; }
+}
+function _stickySetStreak(v) {
+  try { localStorage.setItem('hu_streak', String(v)); } catch (e) {}
+}
+// 返回放水档位 0~3
+function _stickyEase() {
+  const s = _stickyGetStreak();
+  if (s < 2) return 0;
+  return Math.min(3, s - 1);
+}
+// 结算后更新连败计数：player 赢→清零；旁家赢→+1；流局→保持
+function _stickyOnResult(winnerIdx) {
+  if (winnerIdx === 0) _stickySetStreak(0);
+  else if (winnerIdx > 0) _stickySetStreak(_stickyGetStreak() + 1);
+}
+
 function aiPickDiscard(hand, playerIdx) {
   if (hand.length === 0) return -1;
   if (hand.length === 1) return 0;
@@ -7765,6 +7803,11 @@ function aiPickDiscard(hand, playerIdx) {
   // 可调：G._eps 覆盖默认表（分级落区间实验用）
   var _epsLv = (G._eps && G._eps[G.aiLevel] !== undefined) ? G._eps[G.aiLevel]
              : { 0: 0.10, 1: 0.15, 2: 0.075, 3: 0.015 }[G.aiLevel];
+  // 粘性：玩家连败时，旁家出牌随机度递增（最多 +15%），营造"呼吸感"
+  if (playerIdx !== 0 && typeof _stickyEase === 'function') {
+    var _ease = _stickyEase();
+    if (_ease > 0 && _epsLv !== undefined) _epsLv += _ease * 0.05;
+  }
   if (_epsLv !== undefined && Math.random() < _epsLv) return Math.floor(Math.random() * hand.length);
   const lv = G.aiLevel;
   // 菜鸟: 纯随机（偶尔带基础策略）
