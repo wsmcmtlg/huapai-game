@@ -78,8 +78,8 @@ function makeCase(penCount, fakeWin, ch) {
 {
   const fs = require('fs');
   const src = fs.readFileSync('step5-hu.html', 'utf8');
-  check('庄家限两碰逻辑在位', /penCount\s*>=\s*2\)\s*canPen\s*=\s*false/.test(src));
-  check('旁家限两碰逻辑在位', /oppPenCount\s*>=\s*2\)\s*continue/.test(src));
+  check('庄家限两碰逻辑在位', /penCount\s*>=\s*\(G\._penLimit \|\| 2\)\)\s*canPen\s*=\s*false/.test(src));
+  check('旁家限两碰逻辑在位', /oppPenCount\s*>=\s*\(G\._penLimit \|\| 2\)\)\s*continue/.test(src));
 }
 
 console.log('\n────────────────────────');

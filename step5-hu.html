@@ -7762,7 +7762,9 @@ function aiPickDiscard(hand, playerIdx) {
   if (hand.length === 0) return -1;
   if (hand.length === 1) return 0;
   // Phase 11: 人味ε扰动（09号§3.4/§4 减法链条）——低级AI偶尔"不按理出牌"
-  var _epsLv = { 0: 0.25, 1: 0.15, 2: 0.075, 3: 0.015 }[G.aiLevel];
+  // 可调：G._eps 覆盖默认表（分级落区间实验用）
+  var _epsLv = (G._eps && G._eps[G.aiLevel] !== undefined) ? G._eps[G.aiLevel]
+             : { 0: 0.10, 1: 0.15, 2: 0.075, 3: 0.015 }[G.aiLevel];
   if (_epsLv !== undefined && Math.random() < _epsLv) return Math.floor(Math.random() * hand.length);
   const lv = G.aiLevel;
   // 菜鸟: 纯随机（偶尔带基础策略）
@@ -7771,10 +7773,20 @@ function aiPickDiscard(hand, playerIdx) {
     if (Math.random() < 0.3) return Math.floor(Math.random() * hand.length);
     return _aiBasicDiscard(hand);
   }
-  // 高手: 基础启发式，保留赖子/精牌，拆孤立牌
-  if (lv === 1) return _aiBasicDiscard(hand);
-  // 大师: 听牌感知（当前默认）
+  // 高手: 基础启发式 + 听牌感知
+  // 2026-11-06：实测 高手用"听牌感知"出牌后 L1 胡牌率 8.7%→19.0%（落进 15~35% 目标区间），
+  // 故默认开启；G._lv1Basic=true 可退回旧的基础启发式（调试用）
+  if (lv === 1) {
+    if (!G._lv1Basic && hand.length >= 10) {
+      try { return _aiSmartDiscard(hand, playerIdx); } catch (e) { /* 回退到基础策略 */ }
+    }
+    return _aiBasicDiscard(hand);
+  }
+  // 大师: 听牌感知（G._lv2Deep=true 时升级为老千级深度出牌，分级落区间实验用）
   if (lv === 2) {
+    if (G._lv2Deep && hand.length >= 5) {
+      try { return _aiL3Cheat(hand, playerIdx); } catch (e) { /* 回退 */ }
+    }
     if (hand.length >= 10) {
       try { return _aiSmartDiscard(hand, playerIdx); }
       catch(e) { console.warn('[AI] 大师策略异常', e); }
