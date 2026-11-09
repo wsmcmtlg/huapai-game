@@ -425,14 +425,15 @@ function runOneGame(loader, levels, seed, opts) {
     G.deckCount = G.deck.length;
     handCards = []; opponentHands[1] = []; opponentHands[2] = [];
     opponentMelds[1] = []; opponentMelds[2] = [];
-    for (let i = 0; i < 26; i++) handCards.push(parseDeckCard(G.deck.pop()));   // 页面同构：卡牌对象（含花/皮）
-    for (let p = 1; p <= 2; p++) for (let i = 0; i < 25; i++) { var s2 = G.deck.pop(); opponentHands[p].push(s2.indexOf(':')>=0 ? s2.substring(0,s2.indexOf(':')) : s2); }
+    for (let i = 0; i < ${(opts && opts.dealDealer) || 26}; i++) handCards.push(parseDeckCard(G.deck.pop()));   // 页面同构：卡牌对象（含花/皮）
+    for (let p = 1; p <= 2; p++) for (let i = 0; i < ${(opts && opts.dealOpp) || 25}; i++) { var s2 = G.deck.pop(); opponentHands[p].push(s2.indexOf(':')>=0 ? s2.substring(0,s2.indexOf(':')) : s2); }
     G.deckCount = G.deck.length;
     G._passRecord = {}; G._skippedOps = {};
     G.dealerMelds = G.dealerMelds || [];   // 页面靠延迟初始化，测量环境需显式补齐
     __lvCfg[0] = ${levels[0]}; __lvCfg[1] = ${levels[1]}; __lvCfg[2] = ${levels[2]};
     G._penForce = ${!!(opts && opts.penForce)};      // 调参：强制碰
     G._penNoReject = ${!!(opts && opts.penNoReject)}; // 调参：跳过放铳否决
+    G._noBigBias = ${!!(opts && opts.noBigBias)};     // 调参：关掉做大不做小
   `, vmctx);
 
   // 统计循环：驱动任务队列 + 庄家回合接管
@@ -598,6 +599,9 @@ function main() {
   const chuan = getArg('--chuan', 'off'); // off | hu-only | always（扎→穿升级策略）
   const penForce = args.includes('--pen-force');
   const penNoReject = args.includes('--pen-no-reject');
+  const noBigBias = args.includes('--no-big-bias');
+  const dealDealer = +getArg('--deal-dealer', 26);
+  const dealOpp = +getArg('--deal-opp', 25);
   if (!['off', 'hu-only', 'always'].includes(chuan)) { console.error('--chuan 只能是 off|hu-only|always'); process.exit(2); }
   // 双桌口径（08号文档）：cal=校准桌（目标AI+2高手陪练）；exp=体验桌（人类代理+2×目标AI）
   const levels = table === 'exp' ? [humanLv, level, level] : [level, 1, 1];
@@ -614,7 +618,7 @@ function main() {
   for (let g = 0; g < games; g++) {
     process.stdout.write(`\r局 ${g + 1}/${games}`);
     let r;
-    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject }); }
+    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject, noBigBias, dealDealer, dealOpp }); }
     catch (e) { r = { winner: 'error', hu: 0, msg: e.message + ' @ ' + (e.stack || '').split('\n')[1] } }
     if (r.winner === -1 || r.winner === 'draw') draws++;
     else if (r.winner === 'stuck' || r.winner === 'error') { stuck++; if (stuck <= 5) console.log('\n异常:', (r.msg || r.winner).slice(0, 160)); fs.appendFileSync(path.join(__dirname, 'measure_errors.log'), JSON.stringify({ g, r: r.winner, msg: r.msg }) + '\n'); }

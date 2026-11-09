@@ -9323,7 +9323,7 @@ function _profGameDone() {
       if (!ting.canTingStruct) discardPriority -= 500;   // 打出后结构不全拆→保留
       else discardPriority += 100;                        // 打出后仍结构听→鼓励换牌向胡数发展
       // Phase 9: 规则1 大胡方向——精牌潜力损失额外罚（做大不做小）
-      if (_bigHuDirB && _potDelta > 0) { G._p9c=(G._p9c||{}); G._p9c.big=(G._p9c.big||0)+1; discardPriority -= _potDelta * 6; }
+      if (_bigHuDirB && _potDelta > 0 && !G._noBigBias) { G._p9c=(G._p9c||{}); G._p9c.big=(G._p9c.big||0)+1; discardPriority -= _potDelta * 6; } // G._noBigBias：调参开关，关掉"做大不做小"
       // Phase 9: 规则3 撒灰——轻量喂胡另一旁家（非止损态）
       if (_feedOtherB && !concedeMode.concede) { G._p9c=(G._p9c||{}); G._p9c.feed=(G._p9c.feed||0)+1; discardPriority += _aiFeedScore(ch, _feedOtherB) * 12; }
       // Phase 9: 双向牌流——卡下家（默认；下家疑似需要的牌加重罚）
