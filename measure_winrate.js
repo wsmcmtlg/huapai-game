@@ -428,6 +428,12 @@ function runOneGame(loader, levels, seed, opts) {
     for (let i = 0; i < ${(opts && opts.dealDealer) || 26}; i++) handCards.push(parseDeckCard(G.deck.pop()));   // 页面同构：卡牌对象（含花/皮）
     for (let p = 1; p <= 2; p++) for (let i = 0; i < ${(opts && opts.dealOpp) || 25}; i++) { var s2 = G.deck.pop(); opponentHands[p].push(s2.indexOf(':')>=0 ? s2.substring(0,s2.indexOf(':')) : s2); }
     G.deckCount = G.deck.length;
+    // 敏感性实验：额外补 N 张墙牌（只影响测量，不改游戏规则）
+    if (${(opts && opts.extraWall) || 0} > 0) {
+      var __extra = generateDeck();
+      for (var __ei = 0; __ei < ${(opts && opts.extraWall) || 0}; __ei++) G.deck.push(__extra.pop());
+      G.deckCount = G.deck.length;
+    }
     G._passRecord = {}; G._skippedOps = {};
     G.dealerMelds = G.dealerMelds || [];   // 页面靠延迟初始化，测量环境需显式补齐
     __lvCfg[0] = ${levels[0]}; __lvCfg[1] = ${levels[1]}; __lvCfg[2] = ${levels[2]};
@@ -611,6 +617,7 @@ function main() {
   const lv1Basic = args.includes('--lv1-basic');
   const lv2Deep = args.includes('--lv2-deep');
   const smartMinLen = +getArg('--smart-min-len', 10);
+  const extraWall = +getArg('--extra-wall', 0);
   const epsArg = getArg('--eps', '');
   if (!['off', 'hu-only', 'always'].includes(chuan)) { console.error('--chuan 只能是 off|hu-only|always'); process.exit(2); }
   // 双桌口径（08号文档）：cal=校准桌（目标AI+2高手陪练）；exp=体验桌（人类代理+2×目标AI）
@@ -628,7 +635,7 @@ function main() {
   for (let g = 0; g < games; g++) {
     process.stdout.write(`\r局 ${g + 1}/${games}`);
     let r;
-    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject, noBigBias, dealDealer, dealOpp, penLimit, lv1Basic, lv2Deep, smartMinLen, eps: epsArg ? JSON.parse(epsArg) : null }); }
+    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject, noBigBias, dealDealer, dealOpp, penLimit, lv1Basic, lv2Deep, smartMinLen, extraWall, eps: epsArg ? JSON.parse(epsArg) : null }); }
     catch (e) { r = { winner: 'error', hu: 0, msg: e.message + ' @ ' + (e.stack || '').split('\n')[1] } }
     if (r.winner === -1 || r.winner === 'draw') draws++;
     else if (r.winner === 'stuck' || r.winner === 'error') { stuck++; if (stuck <= 5) console.log('\n异常:', (r.msg || r.winner).slice(0, 160)); fs.appendFileSync(path.join(__dirname, 'measure_errors.log'), JSON.stringify({ g, r: r.winner, msg: r.msg }) + '\n'); }
