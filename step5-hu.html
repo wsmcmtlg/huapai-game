@@ -2024,7 +2024,7 @@ const SoundManager = (function() {
     }catch(e){}
   }
 
-  /* 预加载真实音效文件: preload({'draw':'sounds/draw.mp3', ...}) */
+  /* 预加载真实音效文件: preload({'draw':'sounds/draw.wav', ...}) */
   function preload(manifest){
     for(const[name,url] of Object.entries(manifest)){
       if(!CFG[name])continue;
