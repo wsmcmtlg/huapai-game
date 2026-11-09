@@ -5714,9 +5714,9 @@ const JING_RED_TABLE = {
   },
   'kan': {
     // 含赖子（赖=花精，仅红精三五七）
-    // 2026-11-05 按用户口径修正小概率组合奖励：主精为三时 叁叁赖(0皮2赖)=18、叁赖赖(1皮2赖)=24
-    // 表内为基础值（主精再 ×2）：0_2_1: 6→9、0_1_2: 7→12
-    '1_0_2': 12, '2_0_1': 9,  '0_1_2': 12, '1_1_1': 7,  '0_2_1': 9,
+    // 2026-11-06 回退：用户确认查表值即最终值，小概率奖励只是对查表的解释
+    // （主精为三时 叁叁赖=2花+1赖 → 2_0_1:9 ×2 = 18；叁赖赖=1花+2赖 → 1_0_2:12 ×2 = 24）
+    '1_0_2': 12, '2_0_1': 9,  '0_1_2': 7,  '1_1_1': 7,  '0_2_1': 6,
     // 纯精牌（无赖子；补齐后与反馈版/计分引擎一致，原靠兜底算对）
     '2_1_0': 7,  '1_2_0': 6,  '0_3_0': 5,
   },
@@ -5818,18 +5818,14 @@ function _calcMeld(cards, mtype, isMain, mainJinChar, optChars) {
 
   if (mtype === 'pair') {
     // 对子(眼): 红牌对子无精牌=0胡；有精牌或赖子→逐张计胡(黑花精+1,皮红精+1,花红精+2,赖子+2)
-    // 2026-11-05：胡牌张(统牌/自摸张, isTongCard)不计胡 —— "摞"是 8 圆句+1 单张的结构，
-    // 胡牌那张只是把单张圆成对，计胡只算"摞"本身（如 三摞=2胡、上摞=0胡）
-    const vCards = cards.filter(c => !c.isTongCard);
-    const vChars = optChars ? chars.filter((ch, i) => !cards[i] || !cards[i].isTongCard) : vCards.map(c => c.ch);
-    const vHasJing = vChars.some(ch => JING_CHARS.has(ch));
-    const vWc = vCards.filter(c => c.isWild).length;
-    if (vHasJing || vWc > 0) {
-      const r = _lookupJingHu(vCards, 'pair', isMain);
+    // 2026-11-06 回退"排除胡牌张"：用户口径——摞就是一张待圆单张，与同字成对/与联系字成半顺，
+    // 计胡按普通规则即可（如 二摞 捉铳三 计 1 胡；三为主精则 2 胡），故胡牌那张照常参与计胡。
+    if (hasJing || wc > 0) {
+      const r = _lookupJingHu(cards, 'pair', isMain);
       if (r !== null) return r;
       // 查表未命中(乙九黑精): 逐张计胡
       let h = 0;
-      for (const c of vCards) h += calcJingHu(c, mainJinChar);
+      for (const c of cards) h += calcJingHu(c, mainJinChar);
       return h;
     }
     return 0;
@@ -6591,37 +6587,64 @@ function _huFlexPick(cards, melds) {
   for (const m of (melds || [])) {
     if (m.type === 'zha' && m.inHand) zhas.push(m); else fixed.push(m);
   }
+  // 扎/穿在玩家手中、旁家不知 → 扎的席位与"赖的分配"都可重选。
+  // 因此把手上所有扎牌先全部放回同一个池，再逐一决定每个扎席位怎么成立：
+  //   ① 不成立（牌留在池中，自然可成坎 3 张 + 1 张自由牌）
+  //   ② 扎 4 张 = N 张本字 + (4−N) 张赖（N = 4/3/2）
+  //   ③ 穿 5 张 = N 张本字 + (5−N) 张赖（N = 5/4/3）
+  const basePool = cards.slice();
+  for (const m of zhas) for (const c of (m.cards || [])) basePool.push(c);
+
+  const takePhys = (pool, ch, nPhys, nWild) => {
+    const rest = pool.slice();
+    const cards = [];
+    let needP = nPhys, needW = nWild;
+    for (let i = rest.length - 1; i >= 0 && needP > 0; i--) {
+      if (rest[i].ch === ch && !rest[i].isWild) { cards.push(rest.splice(i, 1)[0]); needP--; }
+    }
+    for (let i = rest.length - 1; i >= 0 && needW > 0; i--) {
+      if (rest[i].isWild) { cards.push(rest.splice(i, 1)[0]); needW--; }
+    }
+    if (needP > 0 || needW > 0) return null;
+    return {cards, rest};
+  };
+
   let best = null, bestHu = -1;
-  const consider = (meldList, extraCards, consumed) => {
-    const pool = cards.filter(c => !consumed.has(c)).concat(extraCards);
-    const r = analyzeHand(pool, _preFromMeldList(meldList));
+  const finish = (pool, meldList) => {
+    const r = analyzeHand(pool.slice(), _preFromMeldList(meldList));
     if (!r) return;
     const t = _calcTotalHu(r.melds, r.mainJin);
-    if (t.total > bestHu) { bestHu = t.total; best = {result: r, totalHu: t.total, breakdown: t.breakdown, meldList, pool}; }
-  };
-  let frontier = [[fixed.slice(), [], new Set()]];
-  for (const m of zhas) {
-    const next = [];
-    const cs = (m.cards || []).slice();
-    const zc = m.char || (cs[0] && cs[0].ch);
-    for (const [list, extra, cons] of frontier) {
-      // ① 保持扎
-      next.push([list.concat([m]), extra, cons]);
-      // ② 溶解回手牌
-      next.push([list, extra.concat(cs), cons]);
-      // ③ 升为穿：池中还有同字第 5 张
-      const pool = cards.filter(c => !cons.has(c)).concat(extra);
-      const fifth = pool.find(c => c.ch === zc && cs.indexOf(c) < 0);
-      if (fifth && cs.length >= 4) {
-        const cons3 = new Set(cons); cons3.add(fifth);
-        const mcards = cs.concat([fifth]);
-        next.push([list.concat([{type: 'chuan', char: zc, count: 5, cards: mcards,
-          chars: mcards.map(x => x.ch)}]), extra, cons3]);
-      }
+    if (t.total > bestHu) {
+      bestHu = t.total;
+      best = {result: r, totalHu: t.total, breakdown: t.breakdown, meldList, pool: pool.slice()};
     }
-    frontier = next;
-  }
-  for (const [list, extra, cons] of frontier) consider(list, extra, cons);
+  };
+  const walk = (idx, pool, meldList) => {
+    if (idx >= zhas.length) { finish(pool, meldList); return; }
+    const m = zhas[idx];
+    const cs = (m.cards || []);
+    const zc = m.char || (cs[0] && cs[0].ch);
+    // ① 该扎席位不成立（牌留在池中）
+    walk(idx + 1, pool, meldList);
+    if (!zc) return;
+    // ② 扎（4 张）
+    for (let N = 4; N >= 2; N--) {
+      const got = takePhys(pool, zc, N, 4 - N);
+      if (!got) continue;
+      const mc = got.cards;
+      walk(idx + 1, got.rest, meldList.concat([{type: 'zha', char: zc, count: 4, inHand: true,
+        cards: mc, chars: mc.map(x => x.ch)}]));
+    }
+    // ③ 穿（5 张，赖最多 2 张 → N >= 3）
+    for (let N = 5; N >= 3; N--) {
+      const got = takePhys(pool, zc, N, 5 - N);
+      if (!got) continue;
+      const mc = got.cards;
+      walk(idx + 1, got.rest, meldList.concat([{type: 'chuan', char: zc, count: 5,
+        cards: mc, chars: mc.map(x => x.ch)}]));
+    }
+  };
+  walk(0, basePool, fixed.slice());
   return best;
 }
 

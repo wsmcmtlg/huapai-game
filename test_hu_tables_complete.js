@@ -24,10 +24,10 @@ const testCode = `
     {type:'kan', f:0,s:3,w:0, not:5,  main:10},
     {type:'kan', f:1,s:2,w:0, not:6,  main:12},
     {type:'kan', f:2,s:1,w:0, not:7,  main:14},
-    {type:'kan', f:0,s:2,w:1, not:9,  main:18},   // 2026-11-05 用户口径：叁叁赖=18（小概率奖励）
+    {type:'kan', f:0,s:2,w:1, not:6,  main:12},
     {type:'kan', f:1,s:1,w:1, not:7,  main:14},
     {type:'kan', f:2,s:0,w:1, not:9,  main:18},
-    {type:'kan', f:0,s:1,w:2, not:12, main:24},   // 2026-11-05 用户口径：叁赖赖=24（小概率奖励）
+    {type:'kan', f:0,s:1,w:2, not:7,  main:14},
     {type:'kan', f:1,s:0,w:2, not:12, main:24},
     // ── 红精扎/招 ──
     {type:'zha', f:1,s:3,w:0, not:12, main:24},
