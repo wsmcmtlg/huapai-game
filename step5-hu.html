@@ -3181,7 +3181,7 @@ function checkOpponentResponse() {
       }
       // ★ 限两碰：旁家最多两次碰牌
       var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
-      if (oppPenCount >= 2) continue;
+      if (oppPenCount >= (G._penLimit || 2)) continue;
       // ★ AI决策：是否执行碰牌（L1+评估收益）
       if (!_aiDecidePen(opponentHands[pi], ch, pi)) {
         console.log('[AI] 旁家' + pi + '决定不碰 ' + ch + '（收益不足）');
@@ -3287,7 +3287,7 @@ function checkResponseAfterOpponent(fromIdx) {
         }
       }
       var penCount = G.dealerMelds ? G.dealerMelds.filter(m => m.type === 'pen').length : 0;
-      if (canPen && penCount >= 2) canPen = false;
+      if (canPen && penCount >= (G._penLimit || 2)) canPen = false;
       if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
       if (canZhao && G._skippedOps['zhao_' + ch]) canZhao = false;
       if (canZhao || canPen || canFan) {
@@ -3318,7 +3318,7 @@ function checkResponseAfterOpponent(fromIdx) {
           return;
         }
         var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
-        if (oppPenCount >= 2) continue;
+        if (oppPenCount >= (G._penLimit || 2)) continue;
         if (!_aiDecidePen(opponentHands[pi], ch, pi)) {
           console.log('[AI] 旁家' + pi + '决定不碰 ' + ch + '（收益不足）');
           continue;
@@ -4853,7 +4853,7 @@ function dealerPass() {
     if (count >= 2) {
       // ★ 限两碰：旁家最多两次碰牌
       var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
-      if (oppPenCount >= 2) continue;
+      if (oppPenCount >= (G._penLimit || 2)) continue;
       // ★ AI决策：是否执行碰牌（L1+评估收益）
       if (!_aiDecidePen(opponentHands[pi], ch, pi)) {
         console.log('[AI] 旁家' + pi + '决定不碰 ' + ch + '（收益不足）');
@@ -7193,7 +7193,7 @@ checkResponseAfterOpponent = function(fromIdx) {
 
   // ★ 限两对：胡牌前最多两次碰牌机会
   var penCount = G.dealerMelds ? G.dealerMelds.filter(m => m.type === 'pen').length : 0;
-  if (canPen && penCount >= 2) canPen = false;
+  if (canPen && penCount >= (G._penLimit || 2)) canPen = false;
 
   // ★ 检查过牌记录，丧失已放弃的操作权
   if (canPen && G._skippedOps['pen_' + ch]) canPen = false;
@@ -7233,7 +7233,7 @@ checkResponseAfterOpponent = function(fromIdx) {
       }
       // ★ 限两碰：旁家最多两次碰牌
       var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
-      if (oppPenCount >= 2) continue;
+      if (oppPenCount >= (G._penLimit || 2)) continue;
       // [2026-11-05] 碰牌决策交回分级 AI（此前这里是无条件碰，导致 Phase7.7 放铳成本否决、
       // Phase12 碰门槛 L1:-9/L2:-5/L3:-2 全部成为死代码）。异常时兜底为"碰"，保持旧行为不倒挂。
       G._penChk = (G._penChk || 0) + 1;
@@ -7492,7 +7492,7 @@ addLog(NAMES[pi], '胡', ch + ' (捉统, ' + huResult.totalHu + '胡)');
       }
       // ★ 限两碰：旁家最多两次碰牌
       var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
-      if (oppPenCount >= 2) continue;
+      if (oppPenCount >= (G._penLimit || 2)) continue;
       addLog(NAMES[pi], '碰', ch);
       setPhase(NAMES[pi] + '碰牌中');
       setTimeout(() => opponentPen(pi, ch), 800);
