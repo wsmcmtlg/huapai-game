@@ -7046,13 +7046,25 @@ function showSettlePanel(winnerIdx, winResult, winType) {
     }
   } catch (e) {}
 
-  var settleContent = '<div class="settle-title">胡 牌</div>' +
+  // 2026-11-06 结算节奏：先亮牌型，再出分数（分两段揭示，避免一屏信息轰炸）
+  var _stage1 = '<div class="settle-title">胡 牌</div>' +
     '<div class="settle-winner" style="margin-bottom:8px;">' + mjText + '</div>' +
     '<div class="settle-winner">' + name + ' ' + winType + _huDetailHtml(winType) + '</div>' +
-    '<div class="settle-melds">' + meldsHtml + '</div>' +
-    '<div class="settle-hu-breakdown">' + breakdownHtml + '</div>' +
+    '<div class="settle-melds">' + meldsHtml + '</div>';
+  var _stage2 = '<div class="settle-hu-breakdown">' + breakdownHtml + '</div>' +
     '<div class="settle-total">' + winResult.totalHu + '胡 = ' + points + '分</div>' +
     scoreHtml + _stickyHint;
+  var settleContent = _stage1 + '<div id="settle-stage2" style="opacity:0;transition:opacity .35s ease;">' + _stage2 + '</div>';
+  // 650ms 后揭示分数段（无障碍：减少动效时直接显示）
+  try {
+    var _reduce = (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    setTimeout(function () {
+      try {
+        var _s2 = document.getElementById('settle-stage2');
+        if (_s2) _s2.style.opacity = '1';
+      } catch (e) {}
+    }, _reduce ? 0 : 650);
+  } catch (e) {}
   _gameStats.lastSettleHtml = settleContent;
   // 粘性：记录连败/连胜（玩家赢则清零，旁家赢则累加）
   try { _stickyOnResult(winnerIdx); } catch (e) {}
