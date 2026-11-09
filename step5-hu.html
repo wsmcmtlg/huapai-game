@@ -9779,5 +9779,32 @@ window.addEventListener('orientationchange', function() {
   }
 </script>
 
+<style id="lhp-polish-2026-11-06">
+/* ═══ 2026-11-06 视觉润色（纯样式，不影响任何逻辑） ═══ */
+.act-btn, .btn, button { transition: transform .12s ease, box-shadow .12s ease, filter .12s ease; }
+.act-btn:hover, .btn:hover, button:hover { filter: brightness(1.08); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.act-btn:active, .btn:active, button:active { transform: translateY(1px) scale(.985); }
+.card { transition: transform .14s ease, box-shadow .14s ease; }
+.card:hover { transform: translateY(-6px); box-shadow: 0 8px 20px rgba(0,0,0,.45); }
+#ting-hint .ting-char { animation: lhp-breath 2.4s ease-in-out infinite; }
+@keyframes lhp-breath {
+  0%, 100% { text-shadow: 0 0 0 rgba(255,215,0,0); }
+  50% { text-shadow: 0 0 8px rgba(255,215,0,.55); }
+}
+#settle-container > div { animation: lhp-rise .28s ease-out; }
+@keyframes lhp-rise {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 560px) {
+  .act-btn, .btn, button { min-height: 40px; }
+  .settle-hu-row { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .act-btn, .btn, button, .card, #ting-hint .ting-char, #settle-container > div {
+    animation: none !important; transition: none !important;
+  }
+}
+</style>
 </body>
 </html>
