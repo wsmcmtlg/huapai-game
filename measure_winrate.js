@@ -437,6 +437,7 @@ function runOneGame(loader, levels, seed, opts) {
     G._penLimit = ${(opts && opts.penLimit) || 2};    // 调参：碰次上限（默认 2，敏感性实验用）
     G._lv1Basic = ${!!(opts && opts.lv1Basic)};     // 调参：高手退回基础出牌
     G._lv2Deep = ${!!(opts && opts.lv2Deep)};       // 调参：大师升级为深度出牌
+    G._smartMinLen = ${(opts && opts.smartMinLen) || 10}; // 调参：听牌感知出牌的最小手牌数
     ${(opts && opts.eps) ? 'G._eps = ' + JSON.stringify(opts.eps) + ';' : ''}
   `, vmctx);
 
@@ -609,6 +610,7 @@ function main() {
   const penLimit = +getArg('--pen-limit', 2);
   const lv1Basic = args.includes('--lv1-basic');
   const lv2Deep = args.includes('--lv2-deep');
+  const smartMinLen = +getArg('--smart-min-len', 10);
   const epsArg = getArg('--eps', '');
   if (!['off', 'hu-only', 'always'].includes(chuan)) { console.error('--chuan 只能是 off|hu-only|always'); process.exit(2); }
   // 双桌口径（08号文档）：cal=校准桌（目标AI+2高手陪练）；exp=体验桌（人类代理+2×目标AI）
@@ -626,7 +628,7 @@ function main() {
   for (let g = 0; g < games; g++) {
     process.stdout.write(`\r局 ${g + 1}/${games}`);
     let r;
-    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject, noBigBias, dealDealer, dealOpp, penLimit, lv1Basic, lv2Deep, eps: epsArg ? JSON.parse(epsArg) : null }); }
+    try { r = runOneGame(loader, levels, seed + g * 7919, { chuan, penForce, penNoReject, noBigBias, dealDealer, dealOpp, penLimit, lv1Basic, lv2Deep, smartMinLen, eps: epsArg ? JSON.parse(epsArg) : null }); }
     catch (e) { r = { winner: 'error', hu: 0, msg: e.message + ' @ ' + (e.stack || '').split('\n')[1] } }
     if (r.winner === -1 || r.winner === 'draw') draws++;
     else if (r.winner === 'stuck' || r.winner === 'error') { stuck++; if (stuck <= 5) console.log('\n异常:', (r.msg || r.winner).slice(0, 160)); fs.appendFileSync(path.join(__dirname, 'measure_errors.log'), JSON.stringify({ g, r: r.winner, msg: r.msg }) + '\n'); }

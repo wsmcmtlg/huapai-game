@@ -3385,7 +3385,7 @@ addLog(NAMES[playerIdx], '出', played);
       addDiscardCard(played, charColor(played), charVariant(played));
       updateOpponentCounts();
 
-      setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+      setTimeout(() => checkResponseAfterOpponent(playerIdx), _aiThinkDelay());
     }
   }, 800);
 }
@@ -4968,7 +4968,7 @@ addLog(NAMES[playerIdx], '出', played);
       G.lastPlayedFrom = playerIdx;
       addDiscardCard(played, charColor(played), charVariant(played));
       updateOpponentCounts();
-      setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+      setTimeout(() => checkResponseAfterOpponent(playerIdx), _aiThinkDelay());
       return;
     }
     // 执行扎牌
@@ -5153,7 +5153,7 @@ addLog(NAMES[playerIdx], '出', played);
   addDiscardCard(played, charColor(played), charVariant(played));
   updateOpponentCounts();
 
-  setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+  setTimeout(() => checkResponseAfterOpponent(playerIdx), _aiThinkDelay());
 }
 
 /* ═══ 摸牌动画 ═══ */
@@ -7428,7 +7428,7 @@ addLog(NAMES[playerIdx], '出', played);
   addDiscardCard(played, charColor(played), charVariant(played));
   updateOpponentCounts();
 
-  setTimeout(() => checkResponseAfterOpponent(playerIdx), 500);
+  setTimeout(() => checkResponseAfterOpponent(playerIdx), _aiThinkDelay());
 };
 
 // 修改checkOpponentResponse：旁家胡牌检测
@@ -7796,6 +7796,17 @@ function _stickyOnResult(winnerIdx) {
   else if (winnerIdx > 0) _stickySetStreak(_stickyGetStreak() + 1);
 }
 
+/* ═══ 2026-11-06 节奏：AI 思考延迟分级 ═══
+ * 用"想多久"表达强弱，比改数值更有体感：菜鸟随手打、老千深思（但不超过体感阈值）。
+ */
+function _aiThinkDelay() {
+  if (typeof G === 'undefined' || !G) return 500;
+  var lv = G.aiLevel || 0;
+  var base = (G._thinkDelay && G._thinkDelay[lv] !== undefined) ? G._thinkDelay[lv] : [380, 520, 680, 860][lv];
+  // 少量随机抖动，避免机械感
+  return Math.round(base + Math.random() * 120);
+}
+
 function aiPickDiscard(hand, playerIdx) {
   if (hand.length === 0) return -1;
   if (hand.length === 1) return 0;
@@ -7820,7 +7831,7 @@ function aiPickDiscard(hand, playerIdx) {
   // 2026-11-06：实测 高手用"听牌感知"出牌后 L1 胡牌率 8.7%→19.0%（落进 15~35% 目标区间），
   // 故默认开启；G._lv1Basic=true 可退回旧的基础启发式（调试用）
   if (lv === 1) {
-    if (!G._lv1Basic && hand.length >= 10) {
+    if (!G._lv1Basic && hand.length >= (G._smartMinLen || 10)) {
       try { return _aiSmartDiscard(hand, playerIdx); } catch (e) { /* 回退到基础策略 */ }
     }
     return _aiBasicDiscard(hand);
@@ -7830,7 +7841,7 @@ function aiPickDiscard(hand, playerIdx) {
     if (G._lv2Deep && hand.length >= 5) {
       try { return _aiL3Cheat(hand, playerIdx); } catch (e) { /* 回退 */ }
     }
-    if (hand.length >= 10) {
+    if (hand.length >= (G._smartMinLen || 10)) {
       try { return _aiSmartDiscard(hand, playerIdx); }
       catch(e) { console.warn('[AI] 大师策略异常', e); }
     }
