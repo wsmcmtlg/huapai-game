@@ -70,23 +70,44 @@ const scriptBodies = [];
 scriptBodies.sort((a, b) => b.length - a.length);
 const scriptBody = scriptBodies[0];
 const FN_RE = /function\s+([A-Za-z_$][\w$]*)\s*\(/g;
+const KEYWORDS = new Set(['if','for','while','switch','catch','return','function','var','let','const','new','typeof','delete','void','in','of','do','else','break','continue','case','default','throw','try','finally','instanceof','this','arguments','true','false','null','undefined','Math','JSON','Object','Array','String','Number','Boolean','Date','Map','Set','WeakMap','Promise','RegExp','Error','parseInt','parseFloat','isNaN','console','document','window','setTimeout','clearTimeout','setInterval','clearInterval','require','module','exports','Infinity','NaN','Symbol','Reflect','Proxy','alert','confirm','prompt','requestAnimationFrame','performance','localStorage']);
 const allFns = {};   // name -> source
+const allPos = {};   // name -> 在 scriptBody 中的起始位置（用于按源码顺序装载）
 let m;
 while ((m = FN_RE.exec(scriptBody))) {
   const name = m[1];
   if (!allFns[name]) {
-    try { allFns[name] = extractFunction(scriptBody, 'function ' + name + '('); } catch (e) { /* 多态定义跳过 */ }
+    try { allFns[name] = extractFunction(scriptBody, 'function ' + name + '('); allPos[name] = m.index; } catch (e) { /* 多态定义跳过 */ }
   }
 }
-const KEYWORDS = new Set(['if','for','while','switch','catch','return','function','var','let','const','new','typeof','delete','void','in','of','do','else','break','continue','case','default','throw','try','finally','instanceof','this','arguments','true','false','null','undefined','Math','JSON','Object','Array','String','Number','Boolean','Date','Map','Set','WeakMap','Promise','RegExp','Error','parseInt','parseFloat','isNaN','console','document','window','setTimeout','clearTimeout','setInterval','clearInterval','require','module','exports','Infinity','NaN','Symbol','Reflect','Proxy','alert','confirm','prompt','requestAnimationFrame','performance','localStorage']);
+// ── 顶层"函数覆盖赋值"（X = function(...){...}）──
+// 页面里大量用这种形式重定义主流程（initGame/dealerPen/passToNext/checkResponseAfterOpponent/
+// dealerHu/dealerPass/opponentAutoPlay/checkOpponentResponse…），后定义者才是生效版。
+// 旧版提取器只认 `function X()`，导致测量器跑的是被覆盖掉的旧副本 —— 这里补齐，并按位置取最后一份。
+const ASSIGN_FN_RE = /(?:^|\n)([A-Za-z_$][\w$]*)\s*=\s*function\s*\(/g;
+while ((m = ASSIGN_FN_RE.exec(scriptBody))) {
+  const name = m[1];
+  if (KEYWORDS.has(name)) continue;
+  const start = m.index + (m[0].startsWith('\n') ? 1 : 0);
+  const fnKw = scriptBody.indexOf('function', start);
+  if (fnKw < 0) continue;
+  const brace = scriptBody.indexOf('{', fnKw);
+  if (brace < 0) continue;
+  try {
+    const src = 'var ' + name + ' = ' + scriptBody.slice(fnKw, brace) + extractBalanced(scriptBody, brace) + ';';
+    allFns[name] = src;          // 覆盖旧函数声明
+    allPos[name] = start;
+  } catch (e) { /* 跳过异常赋值 */ }
+}
 const DECL_RE = /(?:^|\n)(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=/g; // 无缩进=顶层声明
-const allDecls = {}; // name -> source（或 'STUB'）
+const allDecls = {}; // name -> source（或 null=DOM stub）
 while ((m = DECL_RE.exec(scriptBody))) {
   const name = m[1];
   if (allDecls[name] || KEYWORDS.has(name)) continue;
   const src = extractDecl(scriptBody, name);
   if (src == null) continue;
   allDecls[name] = src.includes('document.') || src.includes('window.') ? null : src; // null=DOM stub
+  if (!(name in allPos)) allPos[name] = m.index;
 }
 
 // ── 3. 依赖自动发现（BFS） ──
@@ -112,13 +133,21 @@ function discoverDeps(roots) {
 }
 
 // ── 4. 沙箱构造 ──
+// ⚠ 确定性时钟：游戏 AI 的搜索预算 _aiPerfCheck() 用 Date.now() 判断 120ms 上限（step5-hu.html L8571），
+//   若放真墙钟，搜索深度会随机器负载漂移 → 同一 seed 复跑结论不一致。这里改用"每次取时 +1ms"的虚拟钟，
+//   使预算等价于"最多约 120 次检查"，既确定又可复现。
 function buildSandbox(seed) {
+  const vclock = { t: 0 };
+  class VDate extends Date {
+    constructor(...args) { if (args.length === 0) super(vclock.t); else super(...args); }
+    static now() { return vclock.t++; }
+  }
   const ctx = {
     console: { log(){}, warn(){}, error(){}, info(){} },
     Math: Object.create(Math),
-    JSON, Object, Array, String, Number, Boolean, Date, Map, Set, Promise, RegExp, Error,
+    JSON, Object, Array, String, Number, Boolean, Date: VDate, Map, Set, Promise, RegExp, Error,
     parseInt, parseFloat, isNaN, isFinite, Symbol,
-    performance: { now: () => Date.now() },
+    performance: { now: () => vclock.t++ },
     localStorage: { getItem: () => null, setItem(){}, removeItem(){} },
     // 带种子的 PRNG（可复现对局）
     __seed: seed >>> 0,
@@ -322,27 +351,32 @@ analyzeHandLoose = __makeAHCached(analyzeHandLoose, __ahCacheL);
 
 function loadGameCode() {
   const deps = discoverDeps(ROOT_FNS);
-  const chunks = [];
+  const items = [];   // {pos, src} —— 按源码位置排序装载，保证"后定义的覆盖赋值"生效顺序正确
   // 顶层声明（跳过 DOM/特化）
   for (const [name, src] of Object.entries(allDecls)) {
     if (!deps.has(name)) continue;
     if (FORCE_STUB.has(name)) continue;
-    if (src == null) { chunks.push('var ' + name + ' = __domStub();'); continue; }
+    const pos = allPos[name] != null ? allPos[name] : Number.MAX_SAFE_INTEGER;
+    if (src == null) { items.push({ pos, src: 'var ' + name + ' = __domStub();' }); continue; }
     // DOM 引用的复合声明（如 const handZone = document.getElementById(...)）
-    if (src.includes('document.') || src.includes('window.')) { chunks.push('var ' + name + ' = __domStub();'); continue; }
-    chunks.push((name === 'G' ? 'var ' : 'var ') + name + ' = ' + src + ';');
+    if (src.includes('document.') || src.includes('window.')) { items.push({ pos, src: 'var ' + name + ' = __domStub();' }); continue; }
+    items.push({ pos, src: 'var ' + name + ' = ' + src + ';' });
   }
-  // 函数
+  // 函数（含 X = function(...) 覆盖赋值，已是生效版）
   for (const name of deps) {
     if (FORCE_STUB.has(name)) continue;
     const src = allFns[name];
-    if (src) chunks.push(src);
+    if (!src) continue;
+    const pos = allPos[name] != null ? allPos[name] : Number.MAX_SAFE_INTEGER;
+    items.push({ pos, src });
   }
+  items.sort((a, b) => a.pos - b.pos);
+  const chunks = items.map(x => x.src);
   return { chunks: chunks.concat(INJECT_TAIL), deps: [...deps], failures: [] };
 }
 
 // ── 6. 单局对局驱动 ──
-var __chiTotal = null; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
+var __chiTotal = null; var __penChkTotal = 0, __penDenTotal = 0; var __chuanTotal = 0, __chuanHuTotal = 0, __fanTotal = 0, __fanHuTotal = 0; var __claimTotal = 0, __pwTotal = 0, __claimChkTotal = 0; var __p9cLast = null; var __zhaTotal = 0; var __aggrChk=0, __aggrHit=0, __aggrErr=0;
 // 庄家=位0（AI 代理，26张），旁家=位1（下家）、位2（上家）各25张
 // 庄家起手扎/碰/招/泛：第一版简化（TODO: 迭代补 dealer 起手流程），仅起手自摸胡检测
 // opts 为可选诊断钩子（默认不传，行为与旧版完全一致）：
@@ -499,6 +533,7 @@ function runOneGame(loader, levels, seed, opts) {
   ctx.__p9c = Object.assign({}, ctx.G._p9c||null, ctx.G._p9z||null); __p9cLast = ctx.__p9c; // Phase9 真值计数
   ctx.__chi = ctx.G._chiT || null; // 旁家吃牌类型计数（规则审计）
   if (ctx.__chi) { __chiTotal = __chiTotal || {}; for (const k in ctx.__chi) __chiTotal[k] = (__chiTotal[k] || 0) + ctx.__chi[k]; }
+  __penChkTotal += (ctx.G._penChk || 0); __penDenTotal += (ctx.G._penDen || 0); // 旁家碰牌 AI 判据
   const w = ctx.__winner || 'draw';
   if (w.startsWith('win:')) { const [, pi, hu] = w.split(':'); return { winner: +pi, hu: +hu }; }
   return { winner: -1, hu: 0 }; // 荒庄
@@ -561,7 +596,7 @@ function main() {
     const avg = huList.reduce((a, b) => a + b, 0) / huList.length;
     lines.push(`- 平均胡数（赢家）：${avg.toFixed(1)}`);
   }
-  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），P9计数 ${JSON.stringify(__p9cLast || null)}`);
+  lines.push(`- 诊断：庄家碰/招接管 ${__claimTotal} 次，捉铳成交 ${__pwTotal} 次，进取吃检查 ${__aggrChk}/成交 ${__aggrHit}/异常 ${__aggrErr}，旁家吃牌类型 ${JSON.stringify(__chiTotal || {})}，扎后穿牌 ${__chuanTotal} 次（穿上即胡 ${__chuanHuTotal} 次），旁家碰牌AI判据 检查${__penChkTotal}/否决${__penDenTotal}，招手泛牌 ${__fanTotal} 次（泛上即胡 ${__fanHuTotal} 次），P9计数 ${JSON.stringify(__p9cLast || null)}`);
   const report = lines.join('\n');
   console.log('\n' + report);
   const base = `measure_report_${table === 'exp' ? 'exp_H' + humanLv + '_' : 'L'}${level}_${games}` + (chuan === 'off' ? '' : '_chuan-' + chuan.replace('hu-only', 'huOnly'));

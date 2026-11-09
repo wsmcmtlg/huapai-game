@@ -7144,6 +7144,12 @@ checkResponseAfterOpponent = function(fromIdx) {
       // ★ 限两碰：旁家最多两次碰牌
       var oppPenCount = opponentMelds[pi].filter(function(m) { return m.type === 'pen'; }).length;
       if (oppPenCount >= 2) continue;
+      // [2026-11-05] 碰牌决策交回分级 AI（此前这里是无条件碰，导致 Phase7.7 放铳成本否决、
+      // Phase12 碰门槛 L1:-9/L2:-5/L3:-2 全部成为死代码）。异常时兜底为"碰"，保持旧行为不倒挂。
+      G._penChk = (G._penChk || 0) + 1;
+      var _penGo = true;
+      try { _penGo = _aiDecidePen(opponentHands[pi], ch, pi); } catch (e) { _penGo = true; }
+      if (!_penGo) { G._penDen = (G._penDen || 0) + 1; continue; }
       addLog(NAMES[pi], '碰', ch);
       setPhase(NAMES[pi] + '碰牌中');
       setTimeout(() => opponentPen(pi, ch), 800);
