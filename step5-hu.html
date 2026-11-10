@@ -3675,12 +3675,21 @@ function dealerPen() {
     lastDiscard.remove();
   }
 
-  addDealerMeld('pen', ch, null, penCards);
+  // 2026-11-06 加固：碰牌前校验 3 张齐全；每步 try/catch，任何渲染异常都不能让流程卡死
+  if (!penCards || penCards.length !== 3) {
+    console.log('[流程] dealerPen 异常：碰牌只有 ' + (penCards ? penCards.length : 0) + ' 张（应 3 张），已中止并恢复出牌');
+    try { setPhase('庄家出牌'); unlockHand(); updateUI(); } catch (e) {}
+    return;
+  }
+  try { addDealerMeld('pen', ch, null, penCards); } catch (e) { console.log('[流程] addDealerMeld 异常: ' + e.message); }
   if (!G.dealerMelds) G.dealerMelds = [];
   SoundManager.play('pen'); SoundManager.play('v_pen');
-    G.dealerMelds.push({ type: 'pen', char: ch, count: 3, cards: penCards });
-  _profRecord(0, 'pen', ch);
+  G.dealerMelds.push({ type: 'pen', char: ch, count: 3, cards: penCards });
+  try { _profRecord(0, 'pen', ch); } catch (e) { console.log('[流程] _profRecord 异常: ' + e.message); }
   addLog(NAMES[0], '碰', ch);
+  try { if (typeof renderLockArea === 'function') renderLockArea(); } catch (e) { console.log('[流程] renderLockArea 异常: ' + e.message); }
+  try { rearrangeHand(); } catch (e) { console.log('[流程] rearrangeHand 异常: ' + e.message); }
+  console.log('[流程] 碰完成: ch=' + ch + ' 手牌=' + handCards.length + ' 明牌组=' + G.dealerMelds.length);
 
   setPhase('庄家出牌');
   unlockHand();
@@ -4483,11 +4492,15 @@ function dealerZha(ch) {
   G.dealerMelds.push({ type: 'zha', char: ch, count: 4, cards: zhaCards, inHand: true, isWildZha: !!isWildZha });
   
   SoundManager.play('zha'); SoundManager.play('v_zha');addLog(NAMES[0], '扎', ch + (isWildZha ? '(赖)' : ''));
-  _profRecord(0, 'zha', ch);
-  // ★ 渲染锁牌区 + 重排手牌
-  renderLockArea();
-  rearrangeHand();
+  // 2026-11-06 加固：以下每一步单独 try/catch，任何渲染类异常都不能阻断"扎后摸底"
+  // （实测问题：五伍伍+赖 扎下去后没补牌、锁牌区也没显示，原因就是中途抛错中断）
+  try { _profRecord(0, 'zha', ch); } catch (e) { console.log('[流程] _profRecord 异常: ' + e.message); }
+  try { renderLockArea(); } catch (e) { console.log('[流程] renderLockArea 异常: ' + e.message); }
+  try { rearrangeHand(); } catch (e) { console.log('[流程] rearrangeHand 异常: ' + e.message); }
+  try { updateOpponentCounts(); updateUI(); } catch (e) { console.log('[流程] updateUI 异常: ' + e.message); }
+  console.log('[流程] 扎完成: ch=' + ch + ' 赖扎=' + !!isWildZha + ' 手牌=' + handCards.length + ' 余牌=' + G.deckCount + ' 扎牌组=' + (G.dealerMelds[G.dealerMelds.length-1].cards || []).length);
 
+  // 扎牌后必须摸底一张（牌墙底部）——放在最后，确保一定执行
   // 扎牌后检测穿牌（摸牌底，如果摸到同字第5张→穿牌升级）
   dealerCheckChuan(ch, isWildZha);
 }
@@ -4555,8 +4568,11 @@ function dealerCheckChuan(ch, isWildZha) {
     var pureCh = drawnCh.indexOf(':') >= 0 ? drawnCh.substring(0, drawnCh.indexOf(':')) : drawnCh;
     addLog(NAMES[0], '摸牌', pureCh); trackCardUsed(pureCh, '庄家摸牌');
     setPhase('庄家摸牌中');
+    console.log('[流程] 扎后摸底: ' + pureCh + ' 手牌=' + handCards.length + ' 余牌=' + G.deckCount);
 
-    animateDealerDraw(data, function() {
+    // 2026-11-06 加固：动画/回调异常时也要把牌并入手牌并继续流程，避免"扎了没补牌"卡死
+    try {
+      animateDealerDraw(data, function() {
       // 摸牌完成后检查是否为穿牌字
       if (G.drawnCard && G.drawnCard.ch === ch) {
         // 摸到同字 → 显示穿牌按钮让玩家选择（穿牌牺牲自由度，不自动执行）
@@ -4661,6 +4677,18 @@ function dealerCheckChuan(ch, isWildZha) {
         }
       }
     });
+    } catch (e) {
+      // 动画/回调异常兜底：把摸到的牌并入手牌，继续进入出牌阶段，避免卡死
+      console.log('[流程] 摸底动画异常，走兜底: ' + e.message);
+      try {
+        handCards.push(data);
+        G.drawnCard = null;
+        if (typeof rearrangeHand === 'function') rearrangeHand();
+        setPhase('庄家出牌');
+        unlockHand();
+        updateUI();
+      } catch (e2) { console.log('[流程] 摸底兜底也失败: ' + e2.message); }
+    }
   } else {
     setPhase('庄家出牌');
     unlockHand();
