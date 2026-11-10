@@ -7079,6 +7079,37 @@ function showSettlePanel(winnerIdx, winResult, winType) {
   const name = NAMES[winnerIdx];
   const points = calcPoints(winResult.totalHu);
 
+  // ═══ 2026-11-06 结算自检 ═══
+  // 目的：抓"结算表里的牌与手牌不一致"这类问题。
+  // 把胡牌分解用到的每张牌，与「手牌 + 明牌组 + 统牌/自摸张」逐一比对，
+  // 缺一张就打印 [结算自检] 异常，方便定位是判定层还是渲染层用了不该有的牌。
+  try {
+    const pool = {};
+    const add = (ch, n) => { pool[ch] = (pool[ch] || 0) + n; };
+    (handCards || []).forEach(c => add(c.ch, 1));
+    (G.dealerMelds || []).forEach(m => (m.cards || []).forEach(c => add(c.ch, 1)));
+    if (G.drawnCard) add(G.drawnCard.ch, 1);
+    if (G.lastPlayedChar) add(G.lastPlayedChar, 1);   // 统牌（捉铳那一张）
+    const need = {};
+    (winResult.melds || []).forEach(m => {
+      const cards = m.cards || (m.chars || []).map(ch => ({ ch }));
+      cards.forEach(c => { need[c.ch] = (need[c.ch] || 0) + 1; });
+    });
+    const lack = [];
+    for (const ch in need) {
+      const have = pool[ch] || 0;
+      if (need[ch] > have) lack.push(ch + '(需' + need[ch] + '/有' + have + ')');
+    }
+    if (lack.length) {
+      console.log('[结算自检] 异常：结算用到但牌池里不足 → ' + lack.join(' ') +
+        ' | 手牌=' + (handCards || []).map(c => c.ch).join('') +
+        ' | 明牌=' + (G.dealerMelds || []).map(m => m.type + ':' + (m.char || (m.cards && m.cards.map(c=>c.ch).join('')))).join(',') +
+        ' | 统牌=' + (G.lastPlayedChar || '-') + ' | 摸牌=' + (G.drawnCard ? G.drawnCard.ch : '-'));
+    } else {
+      console.log('[结算自检] 通过：结算用牌 ' + Object.keys(need).map(k => k + need[k]).join(' ') + ' 均在牌池内');
+    }
+  } catch (e) { console.log('[结算自检] 检查异常: ' + e.message); }
+
   let meldsHtml = '';
   winResult.melds.forEach(m => {
     const cardsHtml = (m.cards || m.chars.map(ch => makeCardData(ch))).map(c => {
@@ -7964,7 +7995,29 @@ if (typeof document !== 'undefined') {
   setTimeout(function () { try { _showFirstRunGuide(); } catch (e) {} }, 900);
 }
 
+/* ═══ 2026-11-06 赖子保护：AI 不主动打赖子 ═══
+ * 规则允许打出赖子（"赖子除非打出，不能与旁家见面"），但实战中极少这么打。
+ * 做法：先按常规策略选牌；若选中赖子，则在"排除赖子"的手牌上重算一次并映射回原下标。
+ * 只有在手牌全是赖子的极端情况下才会真的打赖子。
+ */
 function aiPickDiscard(hand, playerIdx) {
+  var idx = _aiPickDiscardCore(hand, playerIdx);
+  try {
+    if (idx >= 0 && hand[idx] && hand[idx].ch === WILD_CHAR) {
+      var filtered = [], map = [];
+      for (var i = 0; i < hand.length; i++) {
+        if (hand[i].ch !== WILD_CHAR) { filtered.push(hand[i]); map.push(i); }
+      }
+      if (filtered.length > 0) {
+        var j = _aiPickDiscardCore(filtered, playerIdx);
+        if (typeof j === 'number' && j >= 0 && j < map.length) idx = map[j];
+      }
+    }
+  } catch (e) { /* 保护逻辑异常时退回原选择 */ }
+  return idx;
+}
+
+function _aiPickDiscardCore(hand, playerIdx) {
   if (hand.length === 0) return -1;
   if (hand.length === 1) return 0;
   // Phase 11: 人味ε扰动（09号§3.4/§4 减法链条）——低级AI偶尔"不按理出牌"
