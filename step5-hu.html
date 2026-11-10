@@ -6686,12 +6686,15 @@ function updateTingHint() {
  */
 function _preFromMeldList(list) {
   const out = [];
+  // 2026-11-06 兼容：旁家的明牌组 cards 存的是「字字符串」（如 ['子','子','子','子']），
+  // 而庄家的存的是卡牌对象。这里统一归一化成卡牌对象，否则 .ch 取不到会抛错 → 旁家回合卡死。
+  const _toCard = (c) => (typeof c === 'string') ? makeCardData(c) : c;
   for (const m of (list || [])) {
     if (m.type === 'zha' && m.inHand) {
-      const cs = m.cards || Array.from({length: 4}, () => makeCardData(m.char));
+      const cs = (m.cards || Array.from({length: 4}, () => makeCardData(m.char))).map(_toCard);
       out.push({type: 'zha', chars: cs.map(c => c.ch), cards: cs.slice(0, 4)});
     } else {
-      const cs2 = m.cards || Array.from({length: m.count || 3}, () => makeCardData(m.char));
+      const cs2 = (m.cards || Array.from({length: m.count || 3}, () => makeCardData(m.char))).map(_toCard);
       const chars = m.chars ? m.chars.slice() : cs2.map(c => c.ch);
       out.push({type: m.type || 'pen', chars, cards: cs2});
     }
@@ -6710,7 +6713,9 @@ function _huFlexPick(cards, melds) {
   //   ② 扎 4 张 = N 张本字 + (4−N) 张赖（N = 4/3/2）
   //   ③ 穿 5 张 = N 张本字 + (5−N) 张赖（N = 5/4/3）
   const basePool = cards.slice();
-  for (const m of zhas) for (const c of (m.cards || [])) basePool.push(c);
+  // 兼容旁家：扎牌 cards 可能是字符串，统一转卡牌对象
+  const _norm = (c) => (typeof c === 'string') ? makeCardData(c) : c;
+  for (const m of zhas) for (const c of (m.cards || [])) basePool.push(_norm(c));
 
   const takePhys = (pool, ch, nPhys, nWild) => {
     const rest = pool.slice();
@@ -7569,12 +7574,17 @@ opponentAutoPlay = function(playerIdx) {
 
   // ★ 2026-11-06 修复：旁家摸牌后应做"自摸胡"检测
   // 此前生效版此处直接出牌，旁家从来不自摸 → 旁家胡率被人为压到接近 0，全靠"吃统即胡"
+  // 2026-11-06 加固：判定异常绝不能让旁家回合卡死（本次"上家摸牌卡死"的根因就是这里抛错）
   if (G.aiLevel !== 0) {
-    const selfHu = checkOpponentHu(playerIdx);
-    if (selfHu && selfHu.isWin) {
-      console.log('[流程] 旁家' + playerIdx + '自摸胡 ' + (selfHu.totalHu || 0) + '胡');
-      opponentHu(playerIdx, '自摸');
-      return;
+    try {
+      const selfHu = checkOpponentHu(playerIdx);
+      if (selfHu && selfHu.isWin) {
+        console.log('[流程] 旁家' + playerIdx + '自摸胡 ' + (selfHu.totalHu || 0) + '胡');
+        opponentHu(playerIdx, '自摸');
+        return;
+      }
+    } catch (e) {
+      console.log('[流程] 旁家自摸判定异常（已跳过，继续出牌）: ' + e.message);
     }
   }
 

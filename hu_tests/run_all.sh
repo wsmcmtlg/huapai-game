@@ -42,6 +42,7 @@ run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 run test_ai_concede.js           # Phase7.5: 显式止损模式(concede)
 run test_ai_feed.js              # Phase7.6: 主动喂牌(止损下引导便宜家胡牌)
 run test_peng_chi_rules.js       # 规则约束: 碰限两次(第三次须捉铳)/吃只能吃即胡
+run test_opp_meld_cards.js      # 旁家明牌组字符串兼容（防回合卡死）
 run test_wild_discard.js      # 赖子保护：AI 不主动打赖
 run test_fan_choice.js          # 泛牌多候选必须可选
 run test_prototype_flex.js       # 扎/穿席位可重选+赖再分配: 原型22字全胡/108/64
