@@ -6718,6 +6718,8 @@ function _huFlexPick(cards, melds) {
   for (const m of zhas) for (const c of (m.cards || [])) basePool.push(_norm(c));
 
   const takePhys = (pool, ch, nPhys, nWild) => {
+    // 2026-11-06 铁律：赖子只能通配精牌三五七（WILD_USABLE），不能配「人」等非精字
+    if (nWild > 0 && !WILD_USABLE.has(ch)) return null;
     const rest = pool.slice();
     const cards = [];
     let needP = nPhys, needW = nWild;
@@ -6735,6 +6737,16 @@ function _huFlexPick(cards, melds) {
   const finish = (pool, meldList) => {
     const r = analyzeHand(pool.slice(), _preFromMeldList(meldList));
     if (!r) return;
+    // 2026-11-06 铁律：胡牌结构必须是「8 圆句 + 1 眼」
+    // （7+2 只有 7 个圆句 → 不算胡；此前允许 7+2 判胡属原则性错误）
+    const ms = r.melds || [];
+    let eye = 0, units = 0;
+    for (const mm of ms) {
+      if (mm.type === 'pair' || mm.type === 'kou') eye++;
+      else if (mm.type === 'seq' || mm.type === 'kan' || mm.type === 'pen' ||
+               mm.type === 'zhao' || mm.type === 'zha' || mm.type === 'chuan' || mm.type === 'fan') units++;
+    }
+    if (eye !== 1 || units !== 8) return;   // 结构不合 → 不算胡
     const t = _calcTotalHu(r.melds, r.mainJin);
     if (t.total > bestHu) {
       bestHu = t.total;
