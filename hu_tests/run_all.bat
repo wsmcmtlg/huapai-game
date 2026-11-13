@@ -57,6 +57,11 @@ node test_peng_chi_rules.js
 if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_peng_chi_rules.js) else (set /a PASS+=1 & echo [通过] test_peng_chi_rules.js)
 echo.
 
+echo ════════ 运行 test_result_shape.js ════════
+node test_result_shape.js
+if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_result_shape.js) else (set /a PASS+=1 & echo [通过] test_result_shape.js)
+echo.
+
 echo ════════ 运行 test_hu_total.js ════════
 node test_hu_total.js
 if errorlevel 1 (set /a FAIL+=1 & echo [失败] test_hu_total.js) else (set /a PASS+=1 & echo [通过] test_hu_total.js)
