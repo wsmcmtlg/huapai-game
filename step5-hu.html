@@ -5621,12 +5621,9 @@ function setPhase(text, isDrawing) {
   el.classList.toggle('waiting', text.includes('等待'));
   el.classList.toggle('drawing', !!isDrawing);
   // 更新听牌提示
-  if (text.includes('庄家出牌')) {
-    setTimeout(updateTingHint, 50);
-  } else {
-    const tingEl = document.getElementById('ting-hint');
-    if (tingEl) tingEl.style.display = 'none';
-  }
+  // 2026-11-06 按用户要求：听牌提示常驻（直到本局结束），因此任何阶段都刷新，
+  // 由 updateTingHint 自己判断"还在听就显示、不听就隐藏"，不再因为轮到旁家而强行隐藏。
+  setTimeout(updateTingHint, 50);
 }
 
 // ★ 牌局追踪：记录当前所有玩家牌面快照（用于bug复盘）
@@ -6650,14 +6647,64 @@ function calcTingChars() {
 }
 
 
+/* ═══ 2026-11-06 出牌听口预览 ═══
+ * 用户需求：庄家听牌后，把鼠标移到手牌上就能看到"打出这张后会听什么"，
+ * 便于比较不同打法；真正出牌后再刷新，直到本局结束。
+ */
+function _previewTingAfterDiscard(idx) {
+  try {
+    var saved = handCards.slice();
+    handCards.splice(idx, 1);
+    var r = calcTingChars();
+    handCards = saved;
+    return r;
+  } catch (e) { return null; }
+}
+
+function _renderTingLine(tingChars, prefix) {
+  if (!tingChars || tingChars.length === 0) return prefix ? (prefix + ' 不听牌') : '';
+  var sorted = tingChars.slice().sort(function (a, b) { return SORT_ORDER.indexOf(a.ch) - SORT_ORDER.indexOf(b.ch); });
+  var s = (prefix || '') + sorted.map(function (t) {
+    var rem = (t.remaining !== undefined && t.remaining !== null) ? t.remaining : '?';
+    return t.ch + '(' + rem + ')';
+  }).join(' ');
+  return s;
+}
+
 function updateTingHint() {
   const el = document.getElementById('ting-hint');
   if (!el) return;
-  if (G.gameOver || G.locked) {
+  // 2026-11-06 按用户要求：听牌提示"常驻显示"
+  //  · 只有本局结束才隐藏；不再因为"轮到旁家"（G.locked）而隐藏
+  //  · 不再听牌（tingChars 为空）则隐藏
+  //  · 听口变化即刷新（内容每次都重算）
+  if (G.gameOver) {
     el.style.display = 'none';
+    try { hideTingPanel(); } catch (e) {}
     return;
   }
+  // 悬停预览优先：显示"打出这张后"的听口
+  var hoverIdx = (typeof G._hoverCardIdx === 'number') ? G._hoverCardIdx : -1;
+  if (hoverIdx >= 0 && hoverIdx < handCards.length && !G.locked) {
+    var pv = _previewTingAfterDiscard(hoverIdx);
+    if (pv && pv.length > 0) {
+      el.style.display = 'block';
+      el.innerHTML = '<span style="margin-right:8px;color:#93c5fd;font-size:13px;">打' + handCards[hoverIdx].ch + '后听:</span>' +
+        '<span style="color:#ffd700;">' + _renderTingLine(pv, '') + '</span>';
+      return;
+    } else if (pv && pv.length === 0) {
+      el.style.display = 'block';
+      el.innerHTML = '<span style="margin-right:8px;color:#93c5fd;font-size:13px;">打' + handCards[hoverIdx].ch + '后:</span>' +
+        '<span style="color:#f87171;">不听牌</span>';
+      return;
+    }
+  }
   const tingChars = calcTingChars();
+  // 右下角卡片同步刷新（听牌则显示、不听则清空）
+  try {
+    if (tingChars.length > 0) showTingPanel({ tingChars: tingChars.slice(), tingType: '听牌' });
+    else hideTingPanel();
+  } catch (e) {}
   if (tingChars.length === 0) {
     el.style.display = 'none';
     return;
@@ -10022,6 +10069,28 @@ window.addEventListener('orientationchange', function() {
         .catch(function(err) { console.warn('花牌SW注册失败:', err); });
     });
   }
+/* ═══ 2026-11-06 手牌悬停 → 出牌听口预览 ═══ */
+(function () {
+  function bind() {
+    var zone = document.getElementById('hand-zone') || document.querySelector('.hand-zone');
+    if (!zone || zone.__tingHoverBound) return;
+    zone.__tingHoverBound = true;
+    zone.addEventListener('mouseover', function (e) {
+      var el = e.target;
+      var idx = (typeof cardEls !== 'undefined' && cardEls) ? cardEls.indexOf(el) : -1;
+      if (idx < 0) return;
+      G._hoverCardIdx = idx;
+      try { updateTingHint(); } catch (err) {}
+    });
+    zone.addEventListener('mouseleave', function () {
+      G._hoverCardIdx = -1;
+      try { updateTingHint(); } catch (err) {}
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+  setTimeout(bind, 600);
+})();
 </script>
 
 <style id="lhp-polish-2026-11-06">
