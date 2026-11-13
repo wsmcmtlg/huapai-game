@@ -8027,9 +8027,13 @@ function showTingPanel(tingResult) {
     const label = color === 'red' ? 'red' : 'black';
     const rem = (t.remaining !== undefined) ? t.remaining : '?';
     const remClass = rem === 0 ? ' ting-rem-zero' : '';
+    // 2026-11-06 修复"胡数 undefined"：calcTingChars 返回的字段是 totalHu（不是 hu），
+    // 这里同时兼容两种命名，取不到就退成 "?"，绝不渲染 undefined。
+    const huVal = (t.hu !== undefined && t.hu !== null) ? t.hu
+                : ((t.totalHu !== undefined && t.totalHu !== null) ? t.totalHu : '?');
     charsHtml += '<div class="ting-char-item">' +
       '<span class="ting-ch ' + label + '">' + t.ch + '</span>' +
-      '<span class="ting-hu">' + t.hu + '胡</span>' +
+      '<span class="ting-hu">' + huVal + '胡</span>' +
       '<span class="ting-rem' + remClass + '">余' + rem + '</span></div>';
   });
 
