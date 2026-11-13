@@ -728,7 +728,7 @@
   /* ── 听牌提示 ── */
   .ting-badge {
     /* 2026-11-06 按用户要求：从"屏幕正中大弹窗"改为"右下角小卡片"，避免遮挡牌桌 */
-    position: fixed; right: 18px; bottom: 132px; top: auto; left: auto;
+    position: fixed; right: 104px; bottom: 150px; top: auto; left: auto;
     transform: none;
     background: linear-gradient(145deg, #1a1a2e, #16213e);
     border: 2px solid #22c55e;
@@ -783,8 +783,8 @@
 .ting-hint {
   position: fixed;
   /* 2026-11-06 按用户要求移到右下角（原为底部居中），听口变化时由 updateTingHint 刷新 */
-  bottom: 84px;
-  right: 18px;
+  bottom: 100px;
+  right: 104px;
   left: auto;
   transform: none;
   max-width: 46vw;
@@ -7222,12 +7222,15 @@ function showSettlePanel(winnerIdx, winResult, winType) {
       }
     } else {
       // 捉统：放统者额外惩罚
+      // 2026-11-06 修正：原循环只遍历 si=1..2，漏掉了庄家（si=0），
+      // 导致"旁家捉统胡牌"时结算文字里庄家既没被记放统、也没扣分 —— 上下文字自相矛盾。
       var penPlayer = G.lastPlayedFrom;
-      var penName = penPlayer >= 0 && penPlayer <= 2 ? NAMES[penPlayer] : '旁家';
       scoreHtml += '<div class="score-row winner">' + name + '（捉统）+' + sd.zhuoTongGain + '分</div>';
-      scoreHtml += '<div class="score-row loser">' + penName + '（放统）-' + sd.penLoss + '分</div>';
-      for (var si = 1; si <= 2; si++) {
-        if (si !== penPlayer) {
+      for (var si = 0; si <= 2; si++) {
+        if (si === winnerIdx) continue;
+        if (si === penPlayer) {
+          scoreHtml += '<div class="score-row loser">' + NAMES[si] + '（放统）-' + sd.penLoss + '分</div>';
+        } else {
           scoreHtml += '<div class="score-row loser">' + NAMES[si] + ' -' + sd.noPenLoss + '分</div>';
         }
       }
