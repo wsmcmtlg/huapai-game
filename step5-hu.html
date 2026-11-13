@@ -6801,6 +6801,11 @@ function _huFlexPick(cards, melds) {
     }
     if (eye !== 1 || units !== 8) return;   // 结构不合 → 不算胡
     const t = _calcTotalHu(r.melds, r.mainJin);
+    // 2026-11-06 修复：把胡数与分解写回 result 本身。
+    // 此前只放在 best 对象里，调用方（旁家自摸/捉铳）拿到的是 analyzeHand 的原始结果，
+    // result.totalHu 为 undefined → 结算面板显示"胡数 undefined"。
+    r.totalHu = t.total;
+    r.breakdown = t.breakdown;
     if (t.total > bestHu) {
       bestHu = t.total;
       best = {result: r, totalHu: t.total, breakdown: t.breakdown, meldList, pool: pool.slice()};
@@ -7197,6 +7202,14 @@ function showSettlePanel(winnerIdx, winResult, winType) {
   try { _profGameDone(); } catch(e) {}   // Phase 10: 跨局局数累计
   const container = document.getElementById('settle-container');
   const name = NAMES[winnerIdx];
+  // 2026-11-06 兜底：胡数缺失时按 melds 现算，绝不显示 undefined
+  try {
+    if (typeof winResult.totalHu !== 'number') {
+      const _t = _calcTotalHu(winResult.melds || [], winResult.mainJin);
+      winResult.totalHu = _t.total || 0;
+      if (!winResult.breakdown) winResult.breakdown = _t.breakdown;
+    }
+  } catch (e) {}
   const points = calcPoints(winResult.totalHu);
 
   // ═══ 2026-11-06 结算自检 ═══

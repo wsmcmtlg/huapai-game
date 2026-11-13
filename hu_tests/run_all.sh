@@ -42,6 +42,7 @@ run test_ai_risk.js              # Phase7: AI期望损失(两害相权取其轻)
 run test_ai_concede.js           # Phase7.5: 显式止损模式(concede)
 run test_ai_feed.js              # Phase7.6: 主动喂牌(止损下引导便宜家胡牌)
 run test_peng_chi_rules.js       # 规则约束: 碰限两次(第三次须捉铳)/吃只能吃即胡
+run test_hu_total.js            # 胡数不得为 undefined
 run test_opp_hu_settle.js        # 旁家胡牌必须弹结算（opponentHu 曾缺失）
 run test_hu_structure.js        # 8圆句+1眼才算胡；赖只通配三五七
 run test_opp_meld_cards.js      # 旁家明牌组字符串兼容（防回合卡死）
