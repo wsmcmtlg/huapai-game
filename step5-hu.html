@@ -5418,7 +5418,29 @@ SoundManager.play('liuju'); SoundManager.play('v_liuju');addLog('', '余牌耗�
 }
 
 /* ═══ 庄家明牌渲染 ═══ */
+/* ═══ 2026-11-06 高光反馈 ═══
+ * 大牌型（穿/泛/招/扎）成立、或结算高胡时，屏幕上飘一条金色提示 + 轻微缩放，
+ * 让"我打出了好东西"这件事被看见。纯视觉层，不参与任何判定。
+ */
+function showHighLight(text, kind) {
+  try {
+    if (typeof document === 'undefined' || !document.body) return;
+    var el = document.createElement('div');
+    el.className = 'lhp-highlight' + (kind ? ' lhp-hl-' + kind : '');
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(function () { try { el.remove(); } catch (e) {} }, 1400);
+  } catch (e) { /* 高光失败不影响游戏 */ }
+}
+
 function addDealerMeld(type, char, extraChar, cardsData) {
+  // 高光：庄家大牌型成立时给一条飘字（穿/泛最重，招/扎次之）
+  try {
+    if (type === 'chuan') showHighLight('穿 ' + char, 'gold');
+    else if (type === 'fan') showHighLight('泛 ' + char, 'gold');
+    else if (type === 'zhao') showHighLight('招牌 ' + char, 'silver');
+    else if (type === 'zha') showHighLight('扎 ' + char, 'silver');
+  } catch (e) {}
   const container = document.getElementById('melds-bottom');
   if (!container.querySelector('.melds-col')) {
     const wrap = document.createElement('div');
@@ -7332,6 +7354,8 @@ function showSettlePanel(winnerIdx, winResult, winType) {
     }, _reduce ? 0 : 650);
   } catch (e) {}
   _gameStats.lastSettleHtml = settleContent;
+  // 高光：高胡结算时飘一条（≥60 胡为大牌）
+  try { if (winResult.totalHu >= 60) showHighLight(winResult.totalHu + ' 胡！', 'gold'); } catch (e) {}
   // 粘性：记录连败/连胜（玩家赢则清零，旁家赢则累加）
   try { _stickyOnResult(winnerIdx); } catch (e) {}
 
@@ -10135,6 +10159,31 @@ window.addEventListener('orientationchange', function() {
   .act-btn, .btn, button, .card, #ting-hint .ting-char, #settle-container > div {
     animation: none !important; transition: none !important;
   }
+}
+/* 2026-11-06 高光飘字 */
+.lhp-highlight {
+  position: fixed; top: 18%; left: 50%; transform: translate(-50%, 0) scale(.9);
+  padding: 10px 26px; border-radius: 14px;
+  font-size: 26px; font-weight: 800; letter-spacing: 2px;
+  color: #fff7ed; background: linear-gradient(135deg, rgba(245,158,11,.95), rgba(180,83,9,.95));
+  box-shadow: 0 10px 32px rgba(245,158,11,.45), 0 0 0 2px rgba(255,237,213,.35) inset;
+  z-index: 9600; pointer-events: none;
+  animation: lhp-hl-pop 1.35s ease-out forwards;
+}
+.lhp-highlight.lhp-hl-silver {
+  background: linear-gradient(135deg, rgba(148,163,184,.95), rgba(71,85,105,.95));
+  box-shadow: 0 10px 28px rgba(148,163,184,.4), 0 0 0 2px rgba(226,232,240,.3) inset;
+  color: #f8fafc; font-size: 21px;
+}
+@keyframes lhp-hl-pop {
+  0%   { opacity: 0; transform: translate(-50%, 10px) scale(.86); }
+  18%  { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
+  32%  { transform: translate(-50%, 0) scale(1); }
+  75%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -26px) scale(.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lhp-highlight { animation: none; }
 }
 </style>
 </body>
