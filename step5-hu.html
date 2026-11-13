@@ -781,9 +781,14 @@
   }
 .ting-hint {
   position: fixed;
-  bottom: 110px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* 2026-11-06 按用户要求移到右下角（原为底部居中），听口变化时由 updateTingHint 刷新 */
+  bottom: 84px;
+  right: 18px;
+  left: auto;
+  transform: none;
+  max-width: 46vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
   background: rgba(0,0,0,0.85);
   color: #ffd700;
   padding: 6px 18px;
@@ -7090,6 +7095,56 @@ function showRulesPopup() {
     .then(function(html) { _showPopup('游戏规则与说明', html); })
     .catch(function() { _showPopup('游戏规则与说明', fallbackBody); });
 }
+/* ═══ 2026-11-06 补上缺失的 opponentHu（旁家胡牌结算） ═══
+ * 此前 opponentHu 只被调用、从未定义 → 旁家胡牌时抛 ReferenceError，
+ * 现象正是"回合显示下家胡牌、却无结算也无后续动作、流程卡死"。
+ */
+function opponentHu(playerIdx, winType) {
+  try {
+    console.log('[流程] opponentHu 进入: pi=' + playerIdx + ' type=' + winType + ' gameOver=' + G.gameOver);
+    if (G.gameOver) { console.log('[流程] opponentHu 跳过：本局已结束'); return; }
+    G.gameOver = true;
+    // 取本局结果：优先用调用方暂存，其次按当前牌面重算（自摸/捉铳分别处理）
+    var result = G._pendingOppWin || null;
+    if (!result) {
+      try { result = checkOpponentHu(playerIdx); } catch (e) {}
+    }
+    if (!result || !result.isWin) {
+      try {
+        var tong = G.lastPlayedChar;
+        if (tong) result = checkOpponentHuWithCard(playerIdx, tong);
+      } catch (e) {}
+    }
+    if (!result || !result.isWin) {
+      // 兜底：保证一定有一个可结算的结果，不至于卡死
+      result = result || { isWin: true, totalHu: 17, melds: [], mainJin: null, breakdown: [] };
+      result.isWin = true;
+    }
+    G._pendingOppWin = null;
+    try { SoundManager.play('hu'); } catch (e) {}
+    try { addLog(NAMES[playerIdx], '胡', winType || ''); } catch (e) {}
+    try { setPhase(NAMES[playerIdx] + '胡牌!'); } catch (e) {}
+    try { if (typeof highlightWinCards === 'function' && result.melds) highlightWinCards(result.melds); } catch (e) {}
+    try {
+      showSettlePanel(playerIdx, result, winType || '自摸');
+    } catch (e) {
+      console.log('[流程] 旁家结算面板异常，走兜底: ' + e.message);
+      try {
+        var c = document.getElementById('settle-container');
+        if (c) c.innerHTML = '<div class="settle-overlay" onclick="this.remove()">' +
+          '<div class="settle-panel" onclick="event.stopPropagation()">' +
+          '<div class="settle-title">' + NAMES[playerIdx] + ' 胡牌</div>' +
+          '<div class="settle-total">' + (result.totalHu || 0) + ' 胡</div>' +
+          '<div style="margin-top:12px;"><button class="settle-restart-btn" onclick="closeSettle(); restartGame();">再来一局</button></div>' +
+          '</div></div>';
+      } catch (e2) { console.log('[流程] 兜底结算也失败: ' + e2.message); }
+    }
+  } catch (e) {
+    console.log('[流程] opponentHu 异常: ' + e.message);
+  }
+}
+
+/* ═══ 旁家胡牌（历史注释位置） ═══ */
 function showSettlePanel(winnerIdx, winResult, winType) {
   try { _profGameDone(); } catch(e) {}   // Phase 10: 跨局局数累计
   const container = document.getElementById('settle-container');
