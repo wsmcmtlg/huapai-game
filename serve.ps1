@@ -1,14 +1,15 @@
 param(
     [int]$Port = 8765,
     [string]$Bind = "127.0.0.1",
-    [string]$OpenUrl = "step5-hu.html"
+    [string]$OpenUrl = "step5-hu.html",
+    [switch]$NoBrowser
 )
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrWhiteSpace($root)) { $root = (Get-Location).Path }
 Set-Location $root
 
-# --- 端口占用时自动 +1 重试（最多试 30 个端口） ---
+# ---- 端口占用时自动 +1 重试 ----
 $listener = $null
 $actualPort = $Port
 for ($i = 0; $i -lt 30; $i++) {
@@ -51,8 +52,33 @@ Write-Host "  Serving:  $root"
 Write-Host "  Press Ctrl+C or close this window to stop."
 Write-Host "================================================="
 
-# 浏览器在服务器就绪后才打开，避免"连接被拒绝"竞态
-try { Start-Process $url } catch {}
+# ---- 自动打开浏览器（多种方式兜底，全失败也打印手动地址） ----
+if (-not $NoBrowser) {
+    $opened = $false
+    try {
+        Start-Process $url -ErrorAction Stop
+        $opened = $true
+    } catch {}
+    if (-not $opened) {
+        try {
+            [System.Diagnostics.Process]::Start($url) | Out-Null
+            $opened = $true
+        } catch {}
+    }
+    if (-not $opened) {
+        try {
+            Start-Process explorer.exe -ArgumentList $url -ErrorAction Stop
+            $opened = $true
+        } catch {}
+    }
+    if ($opened) {
+        Write-Host "  [TIP] Browser auto-open. If not, open manually:"
+    } else {
+        Write-Host "  [TIP] Auto-open failed. Please open this URL manually:"
+    }
+    Write-Host "        $url"
+    Write-Host ""
+}
 
 $rootFull = [System.IO.Path]::GetFullPath($root)
 while ($listener.IsListening) {
@@ -68,7 +94,6 @@ while ($listener.IsListening) {
         if ($pathPart -eq '/' -or $pathPart -eq '') { $pathPart = '/step5-hu.html' }
         $rel = $pathPart.TrimStart('/').Replace('/', '\')
         $file = [System.IO.Path]::GetFullPath((Join-Path $root $rel))
-        # 目录穿越防护
         if (-not $file.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
             $resp.StatusCode = 403
             $resp.Close()
