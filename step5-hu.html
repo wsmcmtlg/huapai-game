@@ -2833,8 +2833,11 @@ function showStatsAndQuit() {
 function exitGame() {
   document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0d1117;color:#f59e0b;font-size:28px;font-weight:900;font-family:Microsoft YaHei,sans-serif;flex-direction:column;gap:16px;">' +
     '<div style="font-size:36px;letter-spacing:6px;">谢谢参与!</div>' +
-    '<div style="font-size:16px;color:#888;font-weight:400;">刷新页面可重新开始</div>' +
+    '<div style="font-size:16px;color:#888;font-weight:400;">感谢游玩，正在关闭…（若未自动关闭请手动关闭此标签页）</div>' +
     '</div>';
+  // 2026-11-26 用户建议：显示谢谢后直接关闭窗口
+  // 注：浏览器会拦截"非脚本打开的标签页"的 window.close()，故带兜底提示
+  try { setTimeout(function () { window.close(); }, 900); } catch (e) {}
 }
 
 function restartGame() {
