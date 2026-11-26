@@ -7413,8 +7413,39 @@ function showSettlePanel(winnerIdx, winResult, winType) {
     '<div class="settle-btn-row" style="margin-top:12px;flex-shrink:0;padding-top:10px;border-top:1px solid rgba(245,158,11,0.2);">' +
     '<button class="settle-restart-btn" onclick="closeSettle(); restartGame();">再来一局</button>' +
     '<button class="quit-btn" onclick="closeSettle(); showStatsAndQuit();">见好就收!</button>' +
+    '<button class="settle-peek-btn" id="settle-peek-btn" onpointerdown="peekTable(true)" oncontextmenu="return false" style="margin-left:auto;padding:8px 14px;border-radius:8px;border:1px solid rgba(148,163,184,0.5);background:rgba(148,163,184,0.16);color:#cbd5e1;cursor:pointer;font-size:14px;">👁 查看桌面（长按）</button>' +
     '</div>' +
     '</div></div>';
+}
+
+/* ═══ 2026-11-26 结算表"长按看桌面" ═══
+ * 按住按钮时隐藏结算浮层露出牌桌，松开即恢复。
+ * 关键：按钮本身在浮层内、按下时被一并隐藏，所以"恢复"不能依赖按钮自身的
+ * pointerup，而是挂在 document 上监听（元素隐藏后事件仍会在 document 触发）。
+ */
+function peekTable(show) {
+  try {
+    if (show) {
+      var ov = document.querySelector('#settle-container .settle-overlay');
+      if (ov) ov.style.display = 'none';
+      document.addEventListener('pointerup', _peekRelease);
+      document.addEventListener('pointercancel', _peekRelease);
+      document.addEventListener('mouseup', _peekRelease);
+      document.addEventListener('touchend', _peekRelease);
+    } else {
+      _peekRelease();
+    }
+  } catch (e) {}
+}
+function _peekRelease() {
+  try {
+    var ov = document.querySelector('#settle-container .settle-overlay');
+    if (ov) ov.style.display = '';
+  } catch (e) {}
+  document.removeEventListener('pointerup', _peekRelease);
+  document.removeEventListener('pointercancel', _peekRelease);
+  document.removeEventListener('mouseup', _peekRelease);
+  document.removeEventListener('touchend', _peekRelease);
 }
 
 function closeSettle() {
