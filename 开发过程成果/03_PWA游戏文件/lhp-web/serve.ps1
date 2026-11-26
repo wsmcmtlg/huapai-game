@@ -55,10 +55,18 @@ Write-Host "================================================="
 # ---- 自动打开浏览器（多种方式兜底，全失败也打印手动地址） ----
 if (-not $NoBrowser) {
     $opened = $false
-    try {
-        Start-Process $url -ErrorAction Stop
-        $opened = $true
-    } catch {}
+    # 优先用 Firefox（用户偏好 Firefox，避免 360 抢默认浏览器）
+    $ff = @('C:\Program Files\Mozilla Firefox\firefox.exe','C:\Program Files (x86)\Mozilla Firefox\firefox.exe') |
+          Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($ff) {
+        try { Start-Process $ff -ArgumentList $url -ErrorAction Stop; $opened = $true } catch {}
+    }
+    if (-not $opened) {
+        try {
+            Start-Process $url -ErrorAction Stop
+            $opened = $true
+        } catch {}
+    }
     if (-not $opened) {
         try {
             [System.Diagnostics.Process]::Start($url) | Out-Null
