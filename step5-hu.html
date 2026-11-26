@@ -3149,7 +3149,7 @@ function playCard(el) {
 
 
 SoundManager.play('discard'); SoundManager.play('v_play_' + char);addLog(NAMES[0], '出', char);
-  _profRecord(0, 'discard', char);
+  try { _profRecord(0, 'discard', char); } catch (e) {}   // Phase 10 跨局建档（防 localStorage 异常阻断流程）
   // trackCardUsed已移除(出牌不消耗余牌)
   setPhase('等待响应');
 }
@@ -9581,7 +9581,6 @@ function _aiHuPotential(hand, preMelds) {
   return { potential: pot, wild: wild, cc: cc };
 }
 
-function _aiL3Cheat(hand, playerIdx) {
 // ═══ Phase 10: 跨局玩家建模（老千专属，localStorage，只统计桌面可见行为）═══
 function _profLoad() {
   try { var raw = localStorage.getItem('hp_profile_v1'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
@@ -9599,6 +9598,8 @@ function _profGameDone() {
   var p = _profLoad(); if (!p || typeof p !== 'object') p = { games: 0, pen: {}, zha: {}, disc: {} };
   p.games = (p.games || 0) + 1; _profSave(p);
 }
+
+function _aiL3Cheat(hand, playerIdx) {
   // Phase 5: 性能预算控制
   _aiPerfStart(120); // 80ms预算
   _aiClearTingCache(); // 每次决策前清缓存
